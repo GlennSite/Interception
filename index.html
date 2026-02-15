@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jeu Mobile - Lobby</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top, #1e1b4b, #0f172a);
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Effet Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cacher la scrollbar mais permettre le scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+        }
+    </style>
+</head>
+
+<body class="flex flex-col items-center justify-center p-4 relative">
+
+    <div id="toast"
+        class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-full shadow-lg text-sm font-bold hidden transition-all duration-300">
+        Erreur
+    </div>
+
+    <div id="screen-menu" class="w-full max-w-md flex flex-col gap-6 fade-in">
+        <h1
+            class="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-8">
+            MON JEU
+        </h1>
+
+        <div class="glass p-6 rounded-3xl flex flex-col gap-4">
+            <label class="text-sm text-gray-400 font-bold uppercase tracking-wider">Ton Pseudo</label>
+            <input type="text" id="username" placeholder="Ex: SuperJoueur"
+                class="w-full bg-gray-900/50 border border-gray-700 text-white px-4 py-4 rounded-xl text-lg text-center font-bold placeholder-gray-600 focus:bg-gray-900 transition-all">
+        </div>
+
+        <div class="glass p-6 rounded-3xl flex flex-col gap-4 mt-4">
+            <label class="text-sm text-gray-400 font-bold uppercase tracking-wider">Rejoindre une partie</label>
+            <div class="flex gap-2">
+                <input type="text" id="join-code" placeholder="CODE" maxlength="4"
+                    class="w-2/3 bg-gray-900/50 border border-gray-700 text-white px-4 py-4 rounded-xl text-lg text-center font-bold uppercase tracking-[0.2em] placeholder-gray-600 focus:bg-gray-900 transition-all">
+                <button onclick="joinGame()"
+                    class="w-1/3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-transform shadow-lg shadow-blue-900/50">
+                    GO
+                </button>
+            </div>
+        </div>
+
+        <div class="relative flex py-2 items-center">
+            <div class="flex-grow border-t border-gray-700"></div>
+            <span class="flex-shrink mx-4 text-gray-500 text-sm">OU</span>
+            <div class="flex-grow border-t border-gray-700"></div>
+        </div>
+
+        <button onclick="createGame()"
+            class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-5 rounded-2xl text-xl shadow-lg shadow-purple-900/50 active:scale-95 transition-transform">
+            CRÉER UNE PARTIE
+        </button>
+    </div>
+
+    <div id="screen-lobby" class="w-full max-w-md h-full flex flex-col hidden">
+
+        <div class="flex justify-between items-center mb-6 pt-2">
+            <button onclick="leaveGame()" class="text-gray-400 hover:text-white text-sm font-bold">← QUITTER</button>
+            <div class="bg-gray-800 px-4 py-1 rounded-full text-xs font-mono text-gray-300">
+                SALON: <span id="lobby-code-display" class="text-white font-bold text-lg ml-1 select-all">????</span>
+            </div>
+        </div>
+
+        <div id="game-status-container"
+            class="glass p-8 rounded-3xl text-center mb-6 flex flex-col items-center justify-center min-h-[150px]">
+            <div id="status-icon" class="text-4xl mb-3">⏳</div>
+            <h2 id="game-status-text" class="text-2xl font-bold text-white leading-tight">En attente...</h2>
+            <p id="game-status-sub" class="text-gray-400 text-sm mt-2">L'admin va lancer la partie</p>
+        </div>
+
+        <div id="admin-controls" class="hidden flex flex-col gap-3 mb-6 animate-pulse-once">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="shareCode()"
+                    class="bg-gray-700 hover:bg-gray-600 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                    📤 Partager Code
+                </button>
+                <button onclick="deleteLobby()"
+                    class="bg-red-900/50 text-red-300 hover:bg-red-900/80 border border-red-900 p-3 rounded-xl font-bold text-sm">
+                    🗑️ Supprimer
+                </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="updateGameState('playing')"
+                    class="col-span-1 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-green-900/30 active:scale-95">
+                    ▶️ Lancer
+                </button>
+                <button onclick="updateGameState('paused')"
+                    class="col-span-1 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-yellow-900/30 active:scale-95">
+                    ⏸️ Pause
+                </button>
+                <button onclick="updateGameState('finished')"
+                    class="col-span-1 bg-gray-600 hover:bg-gray-500 text-white p-3 rounded-xl font-bold active:scale-95">
+                    🏁 Fin
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 glass rounded-t-3xl p-6 flex flex-col overflow-hidden">
+            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex justify-between">
+                Joueurs <span id="player-count" class="bg-white text-black px-2 rounded-full text-xs py-0.5">0</span>
+            </h3>
+
+            <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar space-y-3">
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // --- CONFIGURATION FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiarvgeK3eS8S1SxBj3SMW0L4AzsBkig8",
+            authDomain: "interception-e9a6d.firebaseapp.com",
+            projectId: "interception-e9a6d",
+            storageBucket: "interception-e9a6d.firebasestorage.app",
+            messagingSenderId: "533782599002",
+            appId: "1:533782599002:web:8ec56b56a05bc0f24f4f63",
+            measurementId: "G-38QTT8BH8G"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // --- ÉTAT GLOBAL ---
+        let currentUser = { id: null, name: null, isAdmin: false };
+        let currentLobbyCode = null;
+        let lobbyUnsubscribe = null;
+
+        // --- DOM ELEMENTS ---
+        const screens = {
+            menu: document.getElementById('screen-menu'),
+            lobby: document.getElementById('screen-lobby')
+        };
+        const inputs = {
+            username: document.getElementById('username'),
+            joinCode: document.getElementById('join-code')
+        };
+
+        // --- UTILITAIRES ---
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function generateLobbyCode() {
+            // Pas de I, Pas de O
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            let result = "";
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.className = `fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg text-sm font-bold transition-all duration-300 ${type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-black'}`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function switchScreen(screenName) {
+            screens.menu.classList.add('hidden');
+            screens.lobby.classList.add('hidden');
+            screens[screenName].classList.remove('hidden');
+            screens[screenName].classList.add('fade-in');
+        }
+
+        // --- LOGIQUE METIER ---
+
+        // 1. Créer une partie
+        window.createGame = async () => {
+            const username = inputs.username.value.trim();
+            if (!username) return showToast("Choisis un pseudo !");
+
+            const code = generateLobbyCode();
+            const userId = generateId();
+
+            currentUser = { id: userId, name: username, isAdmin: true };
+            currentLobbyCode = code;
+
+            try {
+                // Création document Firestore
+                await setDoc(doc(db, "lobbies", code), {
+                    adminId: userId,
+                    createdAt: Date.now(),
+                    state: "waiting", // waiting, playing, paused, finished
+                    players: [{
+                        id: userId,
+                        name: username,
+                        joinedAt: Date.now()
+                    }]
+                });
+
+                setupLobbyListener(code);
+                switchScreen('lobby');
+                document.getElementById('lobby-code-display').innerText = code;
+
+            } catch (e) {
+                console.error(e);
+                showToast("Erreur lors de la création.");
+            }
+        };
+
+        // 2. Rejoindre une partie
+        window.joinGame = async () => {
+            const username = inputs.username.value.trim();
+            const code = inputs.joinCode.value.trim().toUpperCase();
+
+            if (!username) return showToast("Choisis un pseudo !");
+            if (code.length !== 4) return showToast("Code invalide (4 lettres)");
+
+            const userId = generateId();
+            currentUser = { id: userId, name: username, isAdmin: false };
+            currentLobbyCode = code;
+
+            const lobbyRef = doc(db, "lobbies", code);
+
+            try {
+                const lobbySnap = await getDoc(lobbyRef);
+
+                if (!lobbySnap.exists()) {
+                    return showToast("Ce lobby n'existe pas.");
+                }
+
+                // Ajouter le joueur
+                await updateDoc(lobbyRef, {
+                    players: arrayUnion({
+                        id: userId,
+                        name: username,
+                        joinedAt: Date.now()
+                    })
+                });
+
+                setupLobbyListener(code);
+                switchScreen('lobby');
+                document.getElementById('lobby-code-display').innerText = code;
+
+            } catch (e) {
+                console.error(e);
+                showToast("Impossible de rejoindre.");
+            }
+        };
+
+        // 3. Quitter la partie (Client side)
+        window.leaveGame = async () => {
+            if (currentLobbyCode && currentUser.id) {
+                // Si admin, ça supprime tout (géré par deleteLobby), sinon juste se retirer
+                if (!currentUser.isAdmin) {
+                    try {
+                        // On récupère la liste actuelle pour retirer l'objet complet
+                        // Note: arrayRemove de Firestore nécessite l'objet EXACT. 
+                        // Pour simplifier ici, on ne fait pas l'appel DB complexe pour trouver l'objet exact du user,
+                        // on se contente de recharger la page pour reset l'état local ou on fait une logique plus poussée.
+                        // Pour cette démo, on recharge simplement la page pour revenir au menu proprement.
+                        location.reload();
+                        return;
+                    } catch (e) { console.error(e); }
+                } else {
+                    // L'admin ne peut pas juste "quitter" sans supprimer ou passer le lead (pas implémenté ici)
+                    // Donc on propose de supprimer
+                    if (confirm("En quittant, tu supprimeras la partie. Continuer ?")) {
+                        deleteLobby();
+                    }
+                }
+            }
+        };
+
+        // 4. Supprimer le lobby (Admin)
+        window.deleteLobby = async () => {
+            if (!currentUser.isAdmin) return;
+            if (confirm("Voulez-vous vraiment supprimer la partie ? Tous les joueurs seront éjectés.")) {
+                try {
+                    await deleteDoc(doc(db, "lobbies", currentLobbyCode));
+                } catch (e) { showToast("Erreur suppression"); }
+            }
+        };
+
+        // 5. Mettre à jour l'état du jeu (Admin)
+        window.updateGameState = async (newState) => {
+            if (!currentUser.isAdmin) return;
+            try {
+                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
+                    state: newState
+                });
+            } catch (e) { showToast("Erreur mise à jour état"); }
+        };
+
+        // 6. Gestion des joueurs (Kick/Rename) par Admin
+        window.kickPlayer = async (playerJson) => {
+            const player = JSON.parse(decodeURIComponent(playerJson));
+            if (confirm(`Expulser ${player.name} ?`)) {
+                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
+                    players: arrayRemove(player)
+                });
+            }
+        };
+
+        window.renamePlayer = async (playerJson) => {
+            const player = JSON.parse(decodeURIComponent(playerJson));
+            const newName = prompt("Nouveau nom pour " + player.name);
+            if (newName && newName !== player.name) {
+                // Firestore ne permet pas de modifier un objet dans un array facilement.
+                // Il faut lire, modifier, réécrire.
+                const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+                const snap = await getDoc(lobbyRef);
+                let players = snap.data().players;
+                const index = players.findIndex(p => p.id === player.id);
+                if (index !== -1) {
+                    players[index].name = newName;
+                    await updateDoc(lobbyRef, { players: players });
+                }
+            }
+        };
+
+        // 7. Partage natif
+        window.shareCode = () => {
+            const text = `Rejoins ma partie sur Interception ! Code: ${currentLobbyCode}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Rejoins la partie !',
+                    text: text,
+                    url: window.location.href
+                }).catch(console.error);
+            } else {
+                // Fallback copier presse papier
+                navigator.clipboard.writeText(text).then(() => showToast("Code copié !", "success"));
+            }
+        };
+
+        // --- ECOUTEUR TEMPS REEL (Le coeur du système) ---
+        function setupLobbyListener(code) {
+            if (lobbyUnsubscribe) lobbyUnsubscribe();
+
+            lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
+                // A. Le doc a disparu (Lobby supprimé)
+                if (!docSnap.exists()) {
+                    if (currentLobbyCode) {
+                        alert("L'admin a supprimé la partie."); // Alert simple pour être sûr que ça bloque
+                        location.reload();
+                    }
+                    return;
+                }
+
+                const data = docSnap.data();
+
+                // B. Vérifier si on a été kické
+                const amIInList = data.players.find(p => p.id === currentUser.id);
+                if (!amIInList && !currentUser.isAdmin) {
+                    alert("Vous avez été exclu de la partie.");
+                    location.reload();
+                    return;
+                }
+
+                // C. Mise à jour de l'UI selon l'état (State)
+                updateStatusUI(data.state);
+
+                // D. Mise à jour liste joueurs
+                renderPlayerList(data.players, data.adminId);
+
+                // E. Afficher/Masquer panneau admin
+                const adminPanel = document.getElementById('admin-controls');
+                if (currentUser.isAdmin) {
+                    adminPanel.classList.remove('hidden');
+                } else {
+                    adminPanel.classList.add('hidden');
+                }
+            });
+        }
+
+        function updateStatusUI(state) {
+            const icon = document.getElementById('status-icon');
+            const title = document.getElementById('game-status-text');
+            const sub = document.getElementById('game-status-sub');
+            const container = document.getElementById('game-status-container');
+
+            // Reset classes
+            container.className = "glass p-8 rounded-3xl text-center mb-6 flex flex-col items-center justify-center min-h-[150px] transition-all duration-500";
+
+            switch (state) {
+                case 'waiting':
+                    icon.innerText = "⏳";
+                    title.innerText = "En attente...";
+                    sub.innerText = "La partie va bientôt commencer";
+                    container.classList.add('border-gray-500');
+                    break;
+                case 'playing':
+                    icon.innerText = "🎮";
+                    title.innerText = "PARTIE EN COURS";
+                    sub.innerText = "Bonne chance !";
+                    container.classList.add('bg-green-900/20', 'border-green-500');
+                    break;
+                case 'paused':
+                    icon.innerText = "⏸️";
+                    title.innerText = "PAUSE";
+                    sub.innerText = "Le jeu est en pause";
+                    container.classList.add('bg-yellow-900/20', 'border-yellow-500');
+                    break;
+                case 'finished':
+                    icon.innerText = "🏆";
+                    title.innerText = "PARTIE TERMINÉE";
+                    sub.innerText = "Bravo à tous !";
+                    container.classList.add('bg-purple-900/20', 'border-purple-500');
+                    break;
+            }
+        }
+
+        function renderPlayerList(players, adminId) {
+            const list = document.getElementById('players-list');
+            document.getElementById('player-count').innerText = players.length;
+            list.innerHTML = '';
+
+            players.forEach(player => {
+                const isAdmin = player.id === adminId;
+                const isMe = player.id === currentUser.id;
+
+                // On encode l'objet joueur pour le passer aux fonctions onclick sans casser le HTML
+                const playerSafe = encodeURIComponent(JSON.stringify(player));
+
+                let adminActions = '';
+                if (currentUser.isAdmin && !isMe) {
+                    adminActions = `
+                        <div class="flex gap-2">
+                            <button onclick="renamePlayer('${playerSafe}')" class="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 text-xs">✏️</button>
+                            <button onclick="kickPlayer('${playerSafe}')" class="p-2 bg-red-900/50 text-red-400 border border-red-900 rounded-lg hover:bg-red-900 text-xs">✕</button>
+                        </div>
+                    `;
+                }
+
+                const html = `
+                    <div class="flex justify-between items-center bg-gray-800/50 p-3 rounded-xl border ${isMe ? 'border-purple-500' : 'border-transparent'}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center font-bold text-sm">
+                                ${player.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm ${isMe ? 'text-purple-300' : 'text-white'}">
+                                    ${player.name} ${isMe ? '(Moi)' : ''}
+                                </span>
+                                ${isAdmin ? '<span class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest">ADMIN</span>' : ''}
+                            </div>
+                        </div>
+                        ${adminActions}
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', html);
+            });
+        }
+    </script>
+</body>
+
+</html>
