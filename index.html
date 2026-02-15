@@ -4,36 +4,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jeu Mobile - Lobby</title>
+    <title>INTERCEPTION - CONFIDENTIAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <style>
         body {
-            font-family: 'Outfit', sans-serif;
-            background: radial-gradient(circle at top, #1e1b4b, #0f172a);
-            color: white;
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #050505;
+            background-image:
+                linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: #e0e0e0;
             height: 100vh;
             overflow: hidden;
         }
 
-        /* Effet Glassmorphism */
+        /* Vignette & Scanline */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 50%, black 150%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .crt-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 255, 0, 0.1);
+            animation: scanline 5s linear infinite;
+            z-index: 9;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% {
+                top: -10%;
+            }
+
+            100% {
+                top: 110%;
+            }
+        }
+
+        /* Glass / Tech Panel */
         .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(10, 20, 10, 0.7);
+            border: 1px solid #333;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+
+        .glass::before {
+            content: "";
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid #555;
+            border-left: 2px solid #555;
+        }
+
+        .glass::after {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid #555;
+            border-right: 2px solid #555;
         }
 
         /* Animations */
         .fade-in {
-            animation: fadeIn 0.5s ease-out forwards;
+            animation: fadeIn 0.8s ease-out forwards;
         }
 
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(10px);
+                transform: translateY(20px);
             }
 
             to {
@@ -42,7 +104,7 @@
             }
         }
 
-        /* Cacher la scrollbar mais permettre le scroll */
+        /* Utilities */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -54,105 +116,142 @@
 
         input:focus {
             outline: none;
-            border-color: #8b5cf6;
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+            border-color: #00ff41;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+
+        .text-neon-green {
+            color: #00ff41;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        }
+
+        .border-neon-green {
+            border-color: #00ff41;
+        }
+
+        .bg-neon-green {
+            background-color: #00ff41;
+        }
+
+        .text-neon-red {
+            color: #ff3333;
+            text-shadow: 0 0 5px rgba(255, 51, 51, 0.5);
         }
     </style>
 </head>
 
 <body class="flex flex-col items-center justify-center p-4 relative">
 
+    <div class="crt-line"></div>
+
     <div id="toast"
-        class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-full shadow-lg text-sm font-bold hidden transition-all duration-300">
+        class="fixed top-10 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-red-500 text-red-500 px-6 py-3 shadow-[0_0_15px_rgba(255,0,0,0.5)] text-sm font-bold hidden transition-all duration-300 uppercase tracking-widest">
         Erreur
     </div>
 
-    <div id="screen-menu" class="w-full max-w-md flex flex-col gap-6 fade-in">
-        <h1
-            class="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-8">
-            MON JEU
+    <!-- MENU SCREEN -->
+    <div id="screen-menu" class="w-full max-w-md flex flex-col gap-6 fade-in z-20">
+        <h1 class="text-5xl font-bold text-center text-gray-200 tracking-[0.2em] mb-4 drop-shadow-lg">
+            INTER<span class="text-neon-red">CEPTION</span>
         </h1>
 
-        <div class="glass p-6 rounded-3xl flex flex-col gap-4">
-            <label class="text-sm text-gray-400 font-bold uppercase tracking-wider">Ton Pseudo</label>
-            <input type="text" id="username" placeholder="Ex: SuperJoueur"
-                class="w-full bg-gray-900/50 border border-gray-700 text-white px-4 py-4 rounded-xl text-lg text-center font-bold placeholder-gray-600 focus:bg-gray-900 transition-all">
+        <div class="glass p-6 flex flex-col gap-4">
+            <label class="text-xs text-neon-green font-bold uppercase tracking-widest mb-1">> IDENTIFIANT_AGENT</label>
+            <input type="text" id="username" placeholder="NOM DE CODE..."
+                class="w-full bg-black/50 border border-gray-600 text-white px-4 py-4 text-lg font-bold placeholder-gray-700 focus:bg-black transition-all font-mono">
         </div>
 
-        <div class="glass p-6 rounded-3xl flex flex-col gap-4 mt-4">
-            <label class="text-sm text-gray-400 font-bold uppercase tracking-wider">Rejoindre une partie</label>
+        <div class="glass p-6 flex flex-col gap-4 mt-2">
+            <label class="text-xs text-neon-green font-bold uppercase tracking-widest mb-1">> ACCES_MISSION</label>
             <div class="flex gap-2">
                 <input type="text" id="join-code" placeholder="CODE" maxlength="4"
-                    class="w-2/3 bg-gray-900/50 border border-gray-700 text-white px-4 py-4 rounded-xl text-lg text-center font-bold uppercase tracking-[0.2em] placeholder-gray-600 focus:bg-gray-900 transition-all">
+                    class="w-2/3 bg-black/50 border border-gray-600 text-white px-4 py-4 text-lg text-center font-bold uppercase tracking-[0.2em] placeholder-gray-700 focus:bg-black transition-all font-mono">
                 <button onclick="joinGame()"
-                    class="w-1/3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-transform shadow-lg shadow-blue-900/50">
-                    GO
+                    class="w-1/3 bg-gray-800 hover:bg-gray-700 border border-gray-500 text-white font-bold active:scale-95 transition-all text-sm tracking-widest hover:border-neon-green hover:text-neon-green">
+                    JOIN
                 </button>
             </div>
         </div>
 
-        <div class="relative flex py-2 items-center">
-            <div class="flex-grow border-t border-gray-700"></div>
-            <span class="flex-shrink mx-4 text-gray-500 text-sm">OU</span>
-            <div class="flex-grow border-t border-gray-700"></div>
+        <div class="relative flex py-2 items-center opacity-50">
+            <div class="flex-grow border-t border-gray-800"></div>
+            <span class="flex-shrink mx-4 text-gray-600 text-xs tracking-widest">OU</span>
+            <div class="flex-grow border-t border-gray-800"></div>
         </div>
 
         <button onclick="createGame()"
-            class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-5 rounded-2xl text-xl shadow-lg shadow-purple-900/50 active:scale-95 transition-transform">
-            CRÉER UNE PARTIE
+            class="w-full bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 border border-neon-red text-neon-red font-bold py-5 text-xl shadow-[0_0_10px_rgba(255,51,51,0.2)] active:scale-95 transition-all tracking-widest">
+            INITIER_PROTOCOLE
         </button>
     </div>
 
-    <div id="screen-lobby" class="w-full max-w-md h-full flex flex-col hidden">
+    <!-- LOBBY SCREEN -->
+    <div id="screen-lobby" class="w-full max-w-md h-full flex flex-col hidden z-20 relative">
 
-        <div class="flex justify-between items-center mb-6 pt-2">
-            <button onclick="leaveGame()" class="text-gray-400 hover:text-white text-sm font-bold">← QUITTER</button>
-            <div class="bg-gray-800 px-4 py-1 rounded-full text-xs font-mono text-gray-300">
-                SALON: <span id="lobby-code-display" class="text-white font-bold text-lg ml-1 select-all">????</span>
-            </div>
+        <!-- Top Bar -->
+        <div class="flex justify-between items-end mb-6 pt-4 border-b border-gray-800 pb-2">
+            <button onclick="leaveGame()"
+                class="text-gray-500 hover:text-red-500 text-xs font-bold tracking-widest transition-colors">
+                < ABORT </button>
+                    <div class="text-right">
+                        <div class="text-[10px] text-gray-500 uppercase tracking-widest">Fréquence Sécurisée</div>
+                        <div class="flex items-center justify-end gap-2">
+                            <span id="lobby-code-display"
+                                class="text-neon-green font-bold text-3xl tracking-[0.1em] select-all cursor-pointer hover:bg-green-900/30 px-2">????</span>
+                        </div>
+                    </div>
         </div>
 
+        <!-- Status Box -->
         <div id="game-status-container"
-            class="glass p-8 rounded-3xl text-center mb-6 flex flex-col items-center justify-center min-h-[150px]">
-            <div id="status-icon" class="text-4xl mb-3">⏳</div>
-            <h2 id="game-status-text" class="text-2xl font-bold text-white leading-tight">En attente...</h2>
-            <p id="game-status-sub" class="text-gray-400 text-sm mt-2">L'admin va lancer la partie</p>
+            class="glass p-6 text-center mb-6 flex flex-col items-center justify-center min-h-[120px] border-l-4 border-l-gray-500">
+            <div id="status-icon" class="text-3xl mb-2 opacity-80"></div>
+            <h2 id="game-status-text" class="text-xl font-bold text-white uppercase tracking-widest">En attente...</h2>
+            <p id="game-status-sub" class="text-gray-500 text-xs mt-1 font-mono">Awaiting admin command...</p>
         </div>
 
-        <div id="admin-controls" class="hidden flex flex-col gap-3 mb-6 animate-pulse-once">
+        <!-- Admin Controls -->
+        <div id="admin-controls" class="hidden flex flex-col gap-3 mb-6">
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="shareCode()"
-                    class="bg-gray-700 hover:bg-gray-600 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
-                    📤 Partager Code
+                    class="bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-300 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:border-white">
+                    ✉️ TRANSMETTRE
                 </button>
                 <button onclick="deleteLobby()"
-                    class="bg-red-900/50 text-red-300 hover:bg-red-900/80 border border-red-900 p-3 rounded-xl font-bold text-sm">
-                    🗑️ Supprimer
+                    class="bg-black hover:bg-red-900/20 border border-red-900/50 text-red-500 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:border-red-500 hover:shadow-[0_0_10px_rgba(255,0,0,0.3)]">
+                    ✖ DETRUIRE
                 </button>
             </div>
 
             <div class="grid grid-cols-3 gap-2 mt-2">
                 <button onclick="updateGameState('playing')"
-                    class="col-span-1 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-green-900/30 active:scale-95">
-                    ▶️ Lancer
+                    class="col-span-1 bg-green-900/20 hover:bg-green-900/40 border border-green-700 text-green-400 p-3 font-bold shadow-[0_0_10px_rgba(0,255,0,0.1)] active:scale-95 transition-all uppercase text-xs">
+                    ▶ LAUNCH
                 </button>
                 <button onclick="updateGameState('paused')"
-                    class="col-span-1 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-yellow-900/30 active:scale-95">
-                    ⏸️ Pause
+                    class="col-span-1 bg-yellow-900/20 hover:bg-yellow-900/40 border border-yellow-700 text-yellow-500 p-3 font-bold active:scale-95 transition-all uppercase text-xs">
+                    ⏸ FREEZE
                 </button>
                 <button onclick="updateGameState('finished')"
-                    class="col-span-1 bg-gray-600 hover:bg-gray-500 text-white p-3 rounded-xl font-bold active:scale-95">
-                    🏁 Fin
+                    class="col-span-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 p-3 font-bold active:scale-95 transition-all uppercase text-xs">
+                    🏁 END
                 </button>
             </div>
         </div>
 
-        <div class="flex-1 glass rounded-t-3xl p-6 flex flex-col overflow-hidden">
-            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex justify-between">
-                Joueurs <span id="player-count" class="bg-white text-black px-2 rounded-full text-xs py-0.5">0</span>
+        <!-- Players List -->
+        <div class="flex-1 glass flex flex-col overflow-hidden relative">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-700 to-transparent">
+            </div>
+
+            <h3
+                class="p-4 text-xs font-bold text-gray-500 uppercase tracking-widest flex justify-between items-center border-b border-gray-800">
+                <span>AGENTS ACTIFS</span>
+                <span id="player-count" class="text-neon-green font-mono text-lg">0</span>
             </h3>
 
-            <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar space-y-3">
+            <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-2">
+                <!-- Players will be injected here -->
             </div>
         </div>
     </div>
@@ -172,9 +271,7 @@
             appId: "1:533782599002:web:8ec56b56a05bc0f24f4f63",
             measurementId: "G-38QTT8BH8G"
         };
-
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
         const db = getFirestore(app);
 
         // --- ÉTAT GLOBAL ---
@@ -192,13 +289,54 @@
             joinCode: document.getElementById('join-code')
         };
 
+        // --- HELPERS PERSISTENCE ---
+        function saveSession(user, code) {
+            localStorage.setItem('interception_session', JSON.stringify({
+                user: user,
+                code: code,
+                timestamp: Date.now()
+            }));
+        }
+
+        function clearSession() {
+            localStorage.removeItem('interception_session');
+        }
+
+        function restoreSession() {
+            const raw = localStorage.getItem('interception_session');
+            if (raw) {
+                try {
+                    const session = JSON.parse(raw);
+                    // On pourrait ajouter une verif de timestamp ici (ex: session < 2h)
+                    // Pour l'instant on restaure bêtement
+                    if (session.user && session.code) {
+                        console.log("Session restaurée:", session);
+                        currentUser = session.user;
+                        currentLobbyCode = session.code;
+
+                        // Populate UI input to be clean 
+                        inputs.username.value = session.user.name;
+                        inputs.joinCode.value = session.code;
+
+                        setupLobbyListener(session.code);
+                        switchScreen('lobby');
+                        document.getElementById('lobby-code-display').innerText = session.code;
+                        return true;
+                    }
+                } catch (e) {
+                    console.error("Erreur restore session", e);
+                    clearSession();
+                }
+            }
+            return false;
+        }
+
         // --- UTILITAIRES ---
         function generateId() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2);
         }
 
         function generateLobbyCode() {
-            // Pas de I, Pas de O
             const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
             let result = "";
             for (let i = 0; i < 4; i++) {
@@ -210,7 +348,13 @@
         function showToast(message, type = 'error') {
             const toast = document.getElementById('toast');
             toast.innerText = message;
-            toast.className = `fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg text-sm font-bold transition-all duration-300 ${type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-black'}`;
+            // Reset base styles depending on type ? For this theme we keep it strict/red usually
+            if (type === 'success') {
+                toast.className = "fixed top-10 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-green-500 text-green-500 px-6 py-3 shadow-[0_0_15px_rgba(0,255,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest";
+            } else {
+                toast.className = "fixed top-10 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-red-500 text-red-500 px-6 py-3 shadow-[0_0_15px_rgba(255,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest";
+            }
+
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
@@ -227,7 +371,7 @@
         // 1. Créer une partie
         window.createGame = async () => {
             const username = inputs.username.value.trim();
-            if (!username) return showToast("Choisis un pseudo !");
+            if (!username) return showToast("IDENTITE REQUISE");
 
             const code = generateLobbyCode();
             const userId = generateId();
@@ -236,11 +380,10 @@
             currentLobbyCode = code;
 
             try {
-                // Création document Firestore
                 await setDoc(doc(db, "lobbies", code), {
                     adminId: userId,
                     createdAt: Date.now(),
-                    state: "waiting", // waiting, playing, paused, finished
+                    state: "waiting",
                     players: [{
                         id: userId,
                         name: username,
@@ -248,13 +391,14 @@
                     }]
                 });
 
+                saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
                 switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
 
             } catch (e) {
                 console.error(e);
-                showToast("Erreur lors de la création.");
+                showToast("ECHEC CREATION SYSTEME");
             }
         };
 
@@ -263,8 +407,8 @@
             const username = inputs.username.value.trim();
             const code = inputs.joinCode.value.trim().toUpperCase();
 
-            if (!username) return showToast("Choisis un pseudo !");
-            if (code.length !== 4) return showToast("Code invalide (4 lettres)");
+            if (!username) return showToast("IDENTITE REQUISE");
+            if (code.length !== 4) return showToast("CODE PROTOCOLE INVALIDE");
 
             const userId = generateId();
             currentUser = { id: userId, name: username, isAdmin: false };
@@ -276,10 +420,9 @@
                 const lobbySnap = await getDoc(lobbyRef);
 
                 if (!lobbySnap.exists()) {
-                    return showToast("Ce lobby n'existe pas.");
+                    return showToast("FREQUENCE INCONNUE");
                 }
 
-                // Ajouter le joueur
                 await updateDoc(lobbyRef, {
                     players: arrayUnion({
                         id: userId,
@@ -288,64 +431,60 @@
                     })
                 });
 
+                saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
                 switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
 
             } catch (e) {
                 console.error(e);
-                showToast("Impossible de rejoindre.");
+                showToast("CONNEXION IMPOSSIBLE");
             }
         };
 
-        // 3. Quitter la partie (Client side)
+        // 3. Quitter la partie
         window.leaveGame = async () => {
             if (currentLobbyCode && currentUser.id) {
-                // Si admin, ça supprime tout (géré par deleteLobby), sinon juste se retirer
                 if (!currentUser.isAdmin) {
                     try {
-                        // On récupère la liste actuelle pour retirer l'objet complet
-                        // Note: arrayRemove de Firestore nécessite l'objet EXACT. 
-                        // Pour simplifier ici, on ne fait pas l'appel DB complexe pour trouver l'objet exact du user,
-                        // on se contente de recharger la page pour reset l'état local ou on fait une logique plus poussée.
-                        // Pour cette démo, on recharge simplement la page pour revenir au menu proprement.
+                        // TODO: Clean disconnect from DB ?
+                        // For now we just clear local and reload
+                        clearSession();
                         location.reload();
                         return;
                     } catch (e) { console.error(e); }
                 } else {
-                    // L'admin ne peut pas juste "quitter" sans supprimer ou passer le lead (pas implémenté ici)
-                    // Donc on propose de supprimer
-                    if (confirm("En quittant, tu supprimeras la partie. Continuer ?")) {
+                    if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME. CONFIRMER ?")) {
                         deleteLobby();
                     }
                 }
             }
         };
 
-        // 4. Supprimer le lobby (Admin)
+        // 4. Supprimer le lobby
         window.deleteLobby = async () => {
             if (!currentUser.isAdmin) return;
-            if (confirm("Voulez-vous vraiment supprimer la partie ? Tous les joueurs seront éjectés.")) {
-                try {
-                    await deleteDoc(doc(db, "lobbies", currentLobbyCode));
-                } catch (e) { showToast("Erreur suppression"); }
-            }
+            // Double confirm not needed as button is explicit, but good safety
+            try {
+                await deleteDoc(doc(db, "lobbies", currentLobbyCode));
+                clearSession();
+            } catch (e) { showToast("ERREUR SUPPRESSION"); }
         };
 
-        // 5. Mettre à jour l'état du jeu (Admin)
+        // 5. Update State
         window.updateGameState = async (newState) => {
             if (!currentUser.isAdmin) return;
             try {
                 await updateDoc(doc(db, "lobbies", currentLobbyCode), {
                     state: newState
                 });
-            } catch (e) { showToast("Erreur mise à jour état"); }
+            } catch (e) { showToast("ERREUR SIGNAL"); }
         };
 
-        // 6. Gestion des joueurs (Kick/Rename) par Admin
+        // 6. Gestion Joueurs
         window.kickPlayer = async (playerJson) => {
             const player = JSON.parse(decodeURIComponent(playerJson));
-            if (confirm(`Expulser ${player.name} ?`)) {
+            if (confirm(`EXPULSER L'AGENT ${player.name} ?`)) {
                 await updateDoc(doc(db, "lobbies", currentLobbyCode), {
                     players: arrayRemove(player)
                 });
@@ -354,10 +493,8 @@
 
         window.renamePlayer = async (playerJson) => {
             const player = JSON.parse(decodeURIComponent(playerJson));
-            const newName = prompt("Nouveau nom pour " + player.name);
+            const newName = prompt("NOUVEAU NOM DE CODE:", player.name);
             if (newName && newName !== player.name) {
-                // Firestore ne permet pas de modifier un objet dans un array facilement.
-                // Il faut lire, modifier, réécrire.
                 const lobbyRef = doc(db, "lobbies", currentLobbyCode);
                 const snap = await getDoc(lobbyRef);
                 let players = snap.data().players;
@@ -369,30 +506,31 @@
             }
         };
 
-        // 7. Partage natif
+        // 7. Partage
         window.shareCode = () => {
-            const text = `Rejoins ma partie sur Interception ! Code: ${currentLobbyCode}`;
+            const url = window.location.origin + window.location.pathname + "?room=" + currentLobbyCode;
+            const text = `MISSION INTERCEPTION // FREQUENCE: ${currentLobbyCode}\n${url}`;
+
             if (navigator.share) {
                 navigator.share({
-                    title: 'Rejoins la partie !',
+                    title: 'INTERCEPTION // MISSION',
                     text: text,
-                    url: window.location.href
+                    url: url
                 }).catch(console.error);
             } else {
-                // Fallback copier presse papier
-                navigator.clipboard.writeText(text).then(() => showToast("Code copié !", "success"));
+                navigator.clipboard.writeText(text).then(() => showToast("URL SECURISEE COPIEE", "success"));
             }
         };
 
-        // --- ECOUTEUR TEMPS REEL (Le coeur du système) ---
+        // --- LISTENER ---
         function setupLobbyListener(code) {
             if (lobbyUnsubscribe) lobbyUnsubscribe();
 
             lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
-                // A. Le doc a disparu (Lobby supprimé)
                 if (!docSnap.exists()) {
                     if (currentLobbyCode) {
-                        alert("L'admin a supprimé la partie."); // Alert simple pour être sûr que ça bloque
+                        clearSession(); // Important: clear session if lobby died
+                        alert("CANAL OFF. MISSION AVORTÉE.");
                         location.reload();
                     }
                     return;
@@ -400,21 +538,18 @@
 
                 const data = docSnap.data();
 
-                // B. Vérifier si on a été kické
+                // Kick check
                 const amIInList = data.players.find(p => p.id === currentUser.id);
                 if (!amIInList && !currentUser.isAdmin) {
-                    alert("Vous avez été exclu de la partie.");
+                    clearSession(); // Kicked means kicked
+                    alert("ACCÈS REFUSÉ. VOUS AVEZ ÉTÉ EXCLU.");
                     location.reload();
                     return;
                 }
 
-                // C. Mise à jour de l'UI selon l'état (State)
                 updateStatusUI(data.state);
-
-                // D. Mise à jour liste joueurs
                 renderPlayerList(data.players, data.adminId);
 
-                // E. Afficher/Masquer panneau admin
                 const adminPanel = document.getElementById('admin-controls');
                 if (currentUser.isAdmin) {
                     adminPanel.classList.remove('hidden');
@@ -430,33 +565,36 @@
             const sub = document.getElementById('game-status-sub');
             const container = document.getElementById('game-status-container');
 
-            // Reset classes
-            container.className = "glass p-8 rounded-3xl text-center mb-6 flex flex-col items-center justify-center min-h-[150px] transition-all duration-500";
+            // Reset base styles
+            container.className = "glass p-6 text-center mb-6 flex flex-col items-center justify-center min-h-[120px] border-l-4 transition-all duration-500";
 
             switch (state) {
                 case 'waiting':
                     icon.innerText = "⏳";
-                    title.innerText = "En attente...";
-                    sub.innerText = "La partie va bientôt commencer";
+                    title.innerText = "EN ATTENTE";
+                    sub.innerText = "AWAITING PROTOCOL INITIATION";
                     container.classList.add('border-gray-500');
                     break;
                 case 'playing':
-                    icon.innerText = "🎮";
-                    title.innerText = "PARTIE EN COURS";
-                    sub.innerText = "Bonne chance !";
-                    container.classList.add('bg-green-900/20', 'border-green-500');
+                    icon.innerText = "⚡";
+                    title.innerText = "MISSION EN COURS";
+                    sub.innerText = "OPERATIONAL";
+                    container.classList.add('border-neon-green', 'bg-green-900/10');
+                    title.classList.add('text-neon-green');
                     break;
                 case 'paused':
-                    icon.innerText = "⏸️";
-                    title.innerText = "PAUSE";
-                    sub.innerText = "Le jeu est en pause";
-                    container.classList.add('bg-yellow-900/20', 'border-yellow-500');
+                    icon.innerText = "⚠";
+                    title.innerText = "STASE TEMP.";
+                    sub.innerText = "SYSTEM HALTED";
+                    container.classList.add('border-yellow-500', 'bg-yellow-900/10');
+                    title.classList.add('text-yellow-500');
                     break;
                 case 'finished':
-                    icon.innerText = "🏆";
-                    title.innerText = "PARTIE TERMINÉE";
-                    sub.innerText = "Bravo à tous !";
-                    container.classList.add('bg-purple-900/20', 'border-purple-500');
+                    icon.innerText = "🏁";
+                    title.innerText = "MISSION TERMINÉE";
+                    sub.innerText = "DEBRIEFING REQUIS";
+                    container.classList.add('border-red-500', 'bg-red-900/10');
+                    title.classList.add('text-red-500');
                     break;
             }
         }
@@ -469,31 +607,27 @@
             players.forEach(player => {
                 const isAdmin = player.id === adminId;
                 const isMe = player.id === currentUser.id;
-
-                // On encode l'objet joueur pour le passer aux fonctions onclick sans casser le HTML
                 const playerSafe = encodeURIComponent(JSON.stringify(player));
 
                 let adminActions = '';
                 if (currentUser.isAdmin && !isMe) {
                     adminActions = `
-                        <div class="flex gap-2">
-                            <button onclick="renamePlayer('${playerSafe}')" class="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 text-xs">✏️</button>
-                            <button onclick="kickPlayer('${playerSafe}')" class="p-2 bg-red-900/50 text-red-400 border border-red-900 rounded-lg hover:bg-red-900 text-xs">✕</button>
+                        <div class="flex gap-2 ml-2">
+                        <button onclick="renamePlayer('${playerSafe}')" class="text-gray-500 hover:text-white transition-colors">✎</button>
+                        <button onclick="kickPlayer('${playerSafe}')" class="text-red-800 hover:text-red-500 transition-colors font-bold">✕</button>
                         </div>
                     `;
                 }
 
                 const html = `
-                    <div class="flex justify-between items-center bg-gray-800/50 p-3 rounded-xl border ${isMe ? 'border-purple-500' : 'border-transparent'}">
+                    <div class="flex justify-between items-center p-2 rounded border-b border-gray-800 bg-black/40 hover:bg-white/5 transition-colors">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center font-bold text-sm">
-                                ${player.name.charAt(0).toUpperCase()}
-                            </div>
+                            <div class="w-2 h-2 rounded-full ${isMe ? 'bg-neon-green shadow-[0_0_5px_#00ff41]' : 'bg-gray-600'}"></div>
                             <div class="flex flex-col">
-                                <span class="font-bold text-sm ${isMe ? 'text-purple-300' : 'text-white'}">
-                                    ${player.name} ${isMe ? '(Moi)' : ''}
+                                <span class="font-mono text-sm tracking-widest ${isMe ? 'text-neon-green font-bold' : 'text-gray-300'}">
+                                    ${player.name}
                                 </span>
-                                ${isAdmin ? '<span class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest">ADMIN</span>' : ''}
+                                ${isAdmin ? '<span class="text-[9px] text-yellow-600 font-bold uppercase tracking-widest">COMMANDER</span>' : ''}
                             </div>
                         </div>
                         ${adminActions}
@@ -502,6 +636,22 @@
                 list.insertAdjacentHTML('beforeend', html);
             });
         }
+
+        // --- INIT ---
+        window.addEventListener('load', () => {
+            // 1. Tenter de restaurer la session
+            const restored = restoreSession();
+
+            // 2. Si pas de restauration, check URL room var
+            if (!restored) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomParam = urlParams.get('room');
+                if (roomParam) {
+                    inputs.joinCode.value = roomParam;
+                }
+            }
+        });
+
     </script>
 </body>
 
