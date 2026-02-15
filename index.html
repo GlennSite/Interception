@@ -457,6 +457,8 @@
         window.leaveGame = async () => {
             if (currentLobbyCode && currentUser.id) {
                 if (!currentUser.isAdmin) {
+                    if (!confirm("CONFIRMATION: VOULEZ-VOUS ABANDONNER LA MISSION ?")) return;
+
                     try {
                         const lobbyRef = doc(db, "lobbies", currentLobbyCode);
                         // On doit reconstruire l'objet exact pour que arrayRemove fonctionne
