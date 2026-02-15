@@ -348,6 +348,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
         // --- CONFIG ---
         const firebaseConfig = {
@@ -360,6 +361,7 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // --- DATA ---
         const WORDS_DB = [
@@ -376,6 +378,7 @@
         let currentLobbyCode = null;
         let lobbyData = null;
         let timerInterval = null;
+        let lobbyUnsubscribe = null;
 
         // --- DOM ---
         const screens = {
@@ -403,6 +406,7 @@
                         currentLobbyCode = s.code;
                         inputs.username.value = s.user.name;
                         inputs.joinCode.value = s.code;
+                        // For restored session, we don't force auth immediately but rely on listener to fail if needed
                         setupLobbyListener(s.code);
                         return true;
                     }
@@ -412,7 +416,7 @@
         }
 
         function generateCode() { let c = "ABCDEFGHJKLMNPQRSTUVWXYZ", r = ""; for (let i = 0; i < 4; i++)r += c.charAt(Math.floor(Math.random() * c.length)); return r; }
-        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+
         function showToast(msg, type = 'error') {
             const t = document.getElementById('toast');
             t.innerText = msg;
@@ -488,11 +492,16 @@
         window.createGame = async () => {
             const name = inputs.username.value.trim().toUpperCase();
             if (!name) return showToast("IDENTIFIANT REQUIS");
-            const code = generateCode();
-            const uid = generateId();
-            currentUser = { id: uid, name, isAdmin: true };
-            currentLobbyCode = code;
+
             try {
+                // AUTH
+                const userCred = await signInAnonymously(auth);
+                const uid = userCred.user.uid;
+
+                const code = generateCode();
+                currentUser = { id: uid, name, isAdmin: true };
+                currentLobbyCode = code;
+
                 await setDoc(doc(db, "lobbies", code), {
                     adminId: uid,
                     state: "waiting",
@@ -501,24 +510,40 @@
                 });
                 saveSession(currentUser, code);
                 setupLobbyListener(code);
-            } catch (e) { showToast("ERREUR SYSTEME"); }
+            } catch (e) {
+                console.error(e);
+                showToast("ERREUR: " + (e.code || e.message));
+            }
         };
 
         window.joinGame = async () => {
             const name = inputs.username.value.trim().toUpperCase();
             const code = inputs.joinCode.value.trim().toUpperCase();
             if (!name || code.length !== 4) return showToast("DONNEES INVALIDES");
-            const uid = generateId();
-            currentUser = { id: uid, name, isAdmin: false };
-            currentLobbyCode = code;
-            const ref = doc(db, "lobbies", code);
+
             try {
+                // AUTH
+                const userCred = await signInAnonymously(auth);
+                const uid = userCred.user.uid;
+
+                currentUser = { id: uid, name, isAdmin: false };
+                currentLobbyCode = code;
+                const ref = doc(db, "lobbies", code);
                 const snap = await getDoc(ref);
                 if (!snap.exists()) return showToast("FREQUENCE INCONNUE");
-                await updateDoc(ref, { players: arrayUnion({ id: uid, name, joinedAt: Date.now() }) });
+
+                // Check dupes
+                const players = snap.data().players || [];
+                if (!players.find(p => p.id === uid)) {
+                    await updateDoc(ref, { players: arrayUnion({ id: uid, name, joinedAt: Date.now() }) });
+                }
+
                 saveSession(currentUser, code);
                 setupLobbyListener(code);
-            } catch (e) { showToast("ERREUR CONNEXION"); }
+            } catch (e) {
+                console.error(e);
+                showToast("ERREUR: " + (e.code || e.message));
+            }
         };
 
         window.startRound = async () => {
@@ -744,7 +769,12 @@
 
         window.createGame = createGame; window.joinGame = joinGame; window.startRound = startRound; window.stopRound = stopRound; window.startNewRound = startNewRound; window.submitGuess = submitGuess; window.updateGameState = updateGameState;
 
-        window.addEventListener('load', () => { if (!restoreSession()) { const p = new URLSearchParams(window.location.search).get('room'); if (p) inputs.joinCode.value = p; } });
+        window.addEventListener('load', () => {
+            // Attempt to auth silently on load
+            signInAnonymously(auth).then(c => console.log("Auth Restored:", c.user.uid)).catch(console.error);
+
+            if (!restoreSession()) { const p = new URLSearchParams(window.location.search).get('room'); if (p) inputs.joinCode.value = p; }
+        });
 
     </script>
 </body>
