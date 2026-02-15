@@ -11,7 +11,6 @@
 
     <style>
         :root {
-            /* Safe Area Variables for notch/home bar */
             --sat: env(safe-area-inset-top);
             --sab: env(safe-area-inset-bottom);
         }
@@ -24,9 +23,7 @@
                 linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
             background-size: 20px 20px;
             color: #e0e0e0;
-            height: 100vh;
             height: 100dvh;
-            /* Dynamic viewport height specifically for mobile browsers */
             overflow: hidden;
             padding-top: var(--sat);
             padding-bottom: var(--sab);
@@ -67,7 +64,6 @@
             }
         }
 
-        /* Glass / Tech Panel */
         .glass {
             background: rgba(10, 20, 10, 0.7);
             border: 1px solid #333;
@@ -98,7 +94,6 @@
             border-right: 2px solid #555;
         }
 
-        /* Animations */
         .fade-in {
             animation: fadeIn 0.8s ease-out forwards;
         }
@@ -115,7 +110,6 @@
             }
         }
 
-        /* Utilities */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -230,7 +224,7 @@
             <!-- Injected via JS -->
         </div>
 
-        <!-- Players List -->
+        <!-- Game/Lobby Area -->
         <div class="flex-1 glass flex flex-col overflow-hidden relative mb-4">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-700 to-transparent">
             </div>
@@ -241,7 +235,6 @@
                 <span id="player-count" class="text-neon-green font-mono text-lg">0</span>
             </h3>
 
-            <!-- Modified container to be more generic -->
             <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col">
                 <!-- Players or Game UI will be injected here -->
             </div>
@@ -267,7 +260,7 @@
             { theme: "CINEMA", words: ["FILM", "ACTEUR", "POPCORN", "SALLE", "ECRAN", "HEROS", "ACTION", "COMEDIE", "DRAME", "HORREUR"] }
         ];
 
-        // --- CONFIGURATION FIREBASE ---
+        // --- CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyCiarvgeK3eS8S1SxBj3SMW0L4AzsBkig8",
             authDomain: "interception-e9a6d.firebaseapp.com",
@@ -280,34 +273,19 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- ÉTAT GLOBAL ---
+        // --- STATE ---
         let currentUser = { id: null, name: null, isAdmin: false };
         let currentLobbyCode = null;
         let lobbyUnsubscribe = null;
+        let lastGameData = null; // Important for local checks
 
-        // --- DOM ELEMENTS ---
-        const screens = {
-            menu: document.getElementById('screen-menu'),
-            lobby: document.getElementById('screen-lobby')
-        };
-        const inputs = {
-            username: document.getElementById('username'),
-            joinCode: document.getElementById('join-code')
-        };
+        // --- DOM ---
+        const screens = { menu: document.getElementById('screen-menu'), lobby: document.getElementById('screen-lobby') };
+        const inputs = { username: document.getElementById('username'), joinCode: document.getElementById('join-code') };
 
-        // --- HELPERS PERSISTENCE ---
-        function saveSession(user, code) {
-            localStorage.setItem('interception_session', JSON.stringify({
-                user: user,
-                code: code,
-                timestamp: Date.now()
-            }));
-        }
-
-        function clearSession() {
-            localStorage.removeItem('interception_session');
-        }
-
+        // --- PERSISTENCE ---
+        function saveSession(user, code) { localStorage.setItem('interception_session', JSON.stringify({ user, code, timestamp: Date.now() })); }
+        function clearSession() { localStorage.removeItem('interception_session'); }
         function restoreSession() {
             const raw = localStorage.getItem('interception_session');
             if (raw) {
@@ -323,168 +301,120 @@
                         document.getElementById('lobby-code-display').innerText = session.code;
                         return true;
                     }
-                } catch (e) {
-                    console.error("Erreur restore session", e);
-                    clearSession();
-                }
+                } catch (e) { clearSession(); }
             }
             return false;
         }
 
-        // --- UTILITAIRES ---
+        // --- UTILS ---
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
-        function generateLobbyCode() {
-            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-            let result = "";
-            for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-            return result;
+        function generateLobbyCode() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let r = ""; for (let i = 0; i < 4; i++)r += c.charAt(Math.floor(Math.random() * c.length)); return r; }
+        function fmtTime(s) { const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec < 10 ? '0' + sec : sec}`; }
+        function fmtTimeShort(ts) { const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`; }
+        function showToast(m, t = 'error') {
+            const toast = document.getElementById('toast'); toast.innerText = m;
+            toast.className = `fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border ${t === 'success' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'} px-6 py-3 shadow-[0_0_15px_rgba(0,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center`;
+            toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 3000);
         }
-        function fmtTime(s) {
-            const m = Math.floor(s / 60);
-            const sec = s % 60;
-            return `${m}:${sec < 10 ? '0' + sec : sec}`;
-        }
-        function fmtTimeShort(ts) {
-            const d = new Date(ts);
-            return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-        }
-        function showToast(message, type = 'error') {
-            const toast = document.getElementById('toast');
-            toast.innerText = message;
-            toast.className = `fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border ${type === 'success' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'} px-6 py-3 shadow-[0_0_15px_rgba(0,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center`;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-        function switchScreen(screenName) {
-            screens.menu.classList.add('hidden');
-            screens.lobby.classList.add('hidden');
-            screens[screenName].classList.remove('hidden');
-            screens[screenName].classList.add('fade-in');
-        }
+        function switchScreen(n) { screens.menu.classList.add('hidden'); screens.lobby.classList.add('hidden'); screens[n].classList.remove('hidden'); screens[n].classList.add('fade-in'); }
 
-        // --- LOGIQUE METIER ---
-
-        // 1. Créer une partie
+        // --- ACTIONS ---
         window.createGame = async () => {
             const username = inputs.username.value.trim();
             if (!username) return showToast("IDENTITE REQUISE");
-
             const code = generateLobbyCode();
             const userId = generateId();
             currentUser = { id: userId, name: username, isAdmin: true };
             currentLobbyCode = code;
-
             try {
                 await setDoc(doc(db, "lobbies", code), {
-                    adminId: userId,
-                    createdAt: Date.now(),
-                    state: "waiting", // waiting, playing, finished
-                    round: null, // stockera les infos de la manche
-                    scores: { [userId]: 0 },
+                    adminId: userId, createdAt: Date.now(), state: "waiting", round: null, scores: { [userId]: 0 },
                     players: [{ id: userId, name: username, joinedAt: Date.now() }]
                 });
-
-                saveSession(currentUser, currentLobbyCode);
-                setupLobbyListener(code);
-                switchScreen('lobby');
+                saveSession(currentUser, currentLobbyCode); setupLobbyListener(code); switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
-            } catch (e) { console.error(e); showToast("ECHEC CREATION SYSTEME"); }
+            } catch (e) { showToast("ECHEC CREATION"); }
         };
 
-        // 2. Rejoindre une partie
         window.joinGame = async () => {
             const username = inputs.username.value.trim();
             const code = inputs.joinCode.value.trim().toUpperCase();
-
             if (!username) return showToast("IDENTITE REQUISE");
-            if (code.length !== 4) return showToast("CODE PROTOCOLE INVALIDE");
-
+            if (code.length !== 4) return showToast("CODE INVALID");
             const userId = generateId();
             currentUser = { id: userId, name: username, isAdmin: false };
             currentLobbyCode = code;
-
             try {
-                const lobbyRef = doc(db, "lobbies", code);
-                const lobbySnap = await getDoc(lobbyRef);
-
-                if (!lobbySnap.exists()) return showToast("FREQUENCE INCONNUE");
-
-                await updateDoc(lobbyRef, {
-                    players: arrayUnion({ id: userId, name: username, joinedAt: Date.now() }),
-                    [`scores.${userId}`]: 0 // Init score
-                });
-
-                saveSession(currentUser, currentLobbyCode);
-                setupLobbyListener(code);
-                switchScreen('lobby');
+                const ref = doc(db, "lobbies", code);
+                const s = await getDoc(ref);
+                if (!s.exists()) return showToast("FREQUENCE INCONNUE");
+                await updateDoc(ref, { players: arrayUnion({ id: userId, name: username, joinedAt: Date.now() }), [`scores.${userId}`]: 0 });
+                saveSession(currentUser, currentLobbyCode); setupLobbyListener(code); switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
-            } catch (e) { console.error(e); showToast("CONNEXION IMPOSSIBLE"); }
+            } catch (e) { showToast("CONNEXION IMPOSSIBLE"); }
         };
 
-        // 3. Quitter / Supprimer
         window.leaveGame = async () => {
             if (currentLobbyCode && currentUser.id) {
                 if (!currentUser.isAdmin) {
-                    if (!confirm("CONFIRMATION: VOULEZ-VOUS ABANDONNER LA MISSION ?")) return;
+                    if (!confirm("CONFIRMATION: ABANDONNER ?")) return;
                     try {
-                        const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-                        const snap = await getDoc(lobbyRef);
-                        if (snap.exists()) {
-                            const players = snap.data().players;
-                            const newPlayers = players.filter(p => p.id !== currentUser.id);
-                            await updateDoc(lobbyRef, { players: newPlayers });
+                        const ref = doc(db, "lobbies", currentLobbyCode);
+                        const s = await getDoc(ref);
+                        if (s.exists()) {
+                            const p = s.data().players.filter(x => x.id !== currentUser.id);
+                            await updateDoc(ref, { players: p });
                         }
                         clearSession(); location.reload();
                     } catch (e) { clearSession(); location.reload(); }
                 } else {
-                    if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME. CONFIRMER ?")) deleteLobby();
+                    if (confirm("ATTENTION: DETRUIRE LE SYSTEME ?")) deleteLobby();
                 }
             }
         };
 
         window.deleteLobby = async () => {
-            if (!currentUser.isAdmin) return;
-            if (!confirm("CONFIRMATION REQUISE: CECI EFFACERA TOUTE TRACE DE LA MISSION.")) return;
-            try { await deleteDoc(doc(db, "lobbies", currentLobbyCode)); clearSession(); } catch (e) { showToast("ERREUR SUPPRESSION"); }
+            if (!currentUser.isAdmin || !confirm("CONFIRMATION DETRUIRE ?")) return;
+            try { await deleteDoc(doc(db, "lobbies", currentLobbyCode)); clearSession(); } catch (e) { showToast("ERREUR"); }
         };
 
-        // --- GAMEPLAY: LANCER UNE MANCHE ---
+        window.kickPlayer = async (json) => {
+            const p = JSON.parse(decodeURIComponent(json));
+            if (confirm(`EXPULSER ${p.name} ?`)) await updateDoc(doc(db, "lobbies", currentLobbyCode), { players: arrayRemove(p) });
+        };
+        window.renamePlayer = async (json) => { }; // Disabled
+
         window.startRound = async () => {
             if (!currentUser.isAdmin) return;
-
-            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-            const snap = await getDoc(lobbyRef);
+            const ref = doc(db, "lobbies", currentLobbyCode);
+            const snap = await getDoc(ref);
             const players = snap.data().players;
+            if (players.length < 3) return showToast("MINIMUM 3 AGENTS");
 
-            if (players.length < 3) return showToast("MINIMUM 3 AGENTS REQUIS");
-
-            // 1. Choix du mot
             const dataset = GAME_DATA[Math.floor(Math.random() * GAME_DATA.length)];
             const word = dataset.words[Math.floor(Math.random() * dataset.words.length)];
 
-            // 2. Attribution des rôles
+            // Roles
             const nbInterceptors = Math.max(1, Math.floor((players.length - 1) / 3));
-
             let shuffled = [...players].sort(() => 0.5 - Math.random());
             const informer = shuffled.pop();
             const interceptors = [];
             for (let i = 0; i < nbInterceptors; i++) interceptors.push(shuffled.pop());
-            const targets = shuffled; // Le reste
+            const targets = shuffled;
 
             const roles = {};
             roles[informer.id] = 'INFORMER';
             interceptors.forEach(p => roles[p.id] = 'INTERCEPTOR');
             targets.forEach(p => roles[p.id] = 'TARGET');
 
-            // 3. Mise à jour DB
-            await updateDoc(lobbyRef, {
+            await updateDoc(ref, {
                 state: 'playing',
                 round: {
                     theme: dataset.theme,
                     word: word.toUpperCase(),
                     roles: roles,
                     startTime: Date.now(),
-                    duration: 120, // 2 minutes
+                    duration: 180, // 3 minutes
                     guesses: [],
                     result: null
                 }
@@ -496,8 +426,14 @@
             const guess = input.value.trim().toUpperCase();
             if (!guess) return;
 
-            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-            await updateDoc(lobbyRef, {
+            // Check Limit (5 max)
+            if (lastGameData && lastGameData.round && lastGameData.round.guesses) {
+                const myGuesses = lastGameData.round.guesses.filter(g => g.playerId === currentUser.id);
+                if (myGuesses.length >= 5) return showToast("LIMITE D'ESSAIS ATTEINTE");
+            }
+
+            const ref = doc(db, "lobbies", currentLobbyCode);
+            await updateDoc(ref, {
                 "round.guesses": arrayUnion({
                     playerId: currentUser.id,
                     word: guess,
@@ -509,44 +445,81 @@
             showToast("HYPOTHÈSE TRANSMISE", "success");
         };
 
-        // --- ECOUTEUR & UI ---
+        window.stopRound = async () => {
+            const ref = doc(db, "lobbies", currentLobbyCode);
+            await updateDoc(ref, { state: 'finished' });
+        };
+
+        // --- RESOLUTION FIN DE TIMER ---
+        window.resolveRound = async (data) => {
+            const ref = doc(db, "lobbies", currentLobbyCode);
+            let result = 'FAIL';
+            let scoresUpdate = { ...data.scores };
+
+            // Logique priorité Intercepteur
+            const interceptorSuccess = data.round.guesses.some(g =>
+                g.word === data.round.word && data.round.roles[g.playerId] === 'INTERCEPTOR'
+            );
+            const targetSuccess = data.round.guesses.some(g =>
+                g.word === data.round.word && data.round.roles[g.playerId] === 'TARGET'
+            );
+
+            if (interceptorSuccess) {
+                result = 'INTERCEPTOR_WIN';
+                // +3 pour tout Intercepteur ayant trouvé
+                data.round.guesses.forEach(g => {
+                    if (g.word === data.round.word && data.round.roles[g.playerId] === 'INTERCEPTOR') {
+                        // Avoid double count? arrayUnion or Set logic in real app, here overwrite is fine if same value
+                        scoresUpdate[g.playerId] = (scoresUpdate[g.playerId] || 0) + 3;
+                    }
+                });
+            } else if (targetSuccess) {
+                result = 'SPIES_WIN';
+                // +2 Informateur
+                const informerId = Object.keys(data.round.roles).find(id => data.round.roles[id] === 'INFORMER');
+                if (informerId) scoresUpdate[informerId] = (scoresUpdate[informerId] || 0) + 2;
+                // +2 Target ayant trouvé
+                data.round.guesses.forEach(g => {
+                    if (g.word === data.round.word && data.round.roles[g.playerId] === 'TARGET') {
+                        scoresUpdate[g.playerId] = (scoresUpdate[g.playerId] || 0) + 2;
+                    }
+                });
+            }
+
+            await updateDoc(ref, {
+                state: 'finished',
+                scores: scoresUpdate,
+                "round.result": result
+            });
+        };
+
+        // --- LISTENER ---
         function setupLobbyListener(code) {
             if (lobbyUnsubscribe) lobbyUnsubscribe();
             lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
                 if (!docSnap.exists()) { clearSession(); alert("CANAL OFF."); location.reload(); return; }
                 const data = docSnap.data();
+                lastGameData = data; // Keep sync for utils
 
-                // Kick check
                 if (!data.players.find(p => p.id === currentUser.id) && !currentUser.isAdmin) {
                     clearSession(); alert("EXCLU."); location.reload(); return;
                 }
-
                 updateGameUI(data);
             });
         }
 
         function updateGameUI(data) {
             const state = data.state;
-            const container = document.getElementById('game-status-container');
             const adminPanel = document.getElementById('admin-controls');
 
-            // 1. GESTION DU TIMER
+            // Timer & Resolution
             if (state === 'playing' && data.round && !data.round.result) {
                 const elapsed = Math.floor((Date.now() - data.round.startTime) / 1000);
                 const remaining = Math.max(0, data.round.duration - elapsed);
 
-                // Fin auto par admin
-                if (remaining === 0 && currentUser.isAdmin) endRound(data, 'TIME_UP');
-
-                // Vérification Victoire
-                if (currentUser.isAdmin) {
-                    const match = data.round.guesses.find(g => g.word === data.round.word);
-                    if (match) {
-                        const winnerRole = data.round.roles[match.playerId];
-                        if (winnerRole === 'INTERCEPTOR') endRound(data, 'INTERCEPTOR_WIN', match);
-                        else if (winnerRole === 'TARGET') endRound(data, 'SPY_WIN', match);
-                        else if (winnerRole === 'INFORMER') { } // Informer peut pas deviner son mot
-                    }
+                // Only admin calls resolution at 0
+                if (remaining === 0 && currentUser.isAdmin) {
+                    resolveRound(data);
                 }
 
                 document.getElementById('game-status-text').innerText = fmtTime(remaining);
@@ -559,11 +532,9 @@
                 document.getElementById('status-icon').innerText = "🏁";
             }
 
-            // 2. INTERFACE
             if (state === 'playing') renderInGameInterface(data);
             else renderLobbyInterface(data);
 
-            // 3. ADMIN
             if (currentUser.isAdmin) {
                 adminPanel.classList.remove('hidden');
                 if (state === 'playing') {
@@ -577,16 +548,12 @@
                         </div>
                      `;
                 }
-            } else {
-                adminPanel.classList.add('hidden');
-            }
+            } else adminPanel.classList.add('hidden');
         }
 
         function renderLobbyInterface(data) {
             const list = document.getElementById('players-list');
             const sub = document.getElementById('game-status-sub');
-
-            // Clean classes for generic list
             list.className = "flex-1 overflow-y-auto no-scrollbar space-y-2 p-4";
 
             if (data.state === 'finished' && data.round && data.round.result) {
@@ -594,23 +561,18 @@
                     data.round.result === 'SPIES_WIN' ? "TRANSMISSION RÉUSSIE !" :
                         "ECHEC DE LA MISSION";
                 sub.innerHTML = `<span class="text-neon-red font-bold">${msg}</span><br>Le mot était: ${data.round.word}`;
-            } else {
-                sub.innerText = "En attente du QG...";
-            }
+            } else { sub.innerText = "En attente du QG..."; }
 
             document.getElementById('player-count').innerText = data.players.length;
             list.innerHTML = '';
             data.players.forEach(p => {
                 const isMe = p.id === currentUser.id;
                 const score = (data.scores && data.scores[p.id]) || 0;
-
-                // Allow admin to kick in lobby
                 let adminActions = '';
                 if (currentUser.isAdmin && !isMe) {
                     const pSafe = encodeURIComponent(JSON.stringify(p));
                     adminActions = `<button onclick="kickPlayer('${pSafe}')" class="text-red-800 hover:text-red-500 font-bold ml-2">✕</button>`;
                 }
-
                 list.insertAdjacentHTML('beforeend', `
                     <div class="flex justify-between items-center p-2 border-b border-gray-800 bg-black/40">
                         <div class="flex items-center gap-2">
@@ -629,24 +591,29 @@
         function renderInGameInterface(data) {
             const list = document.getElementById('players-list');
             const sub = document.getElementById('game-status-sub');
-
-            // Layout container mode
             list.className = "flex-1 overflow-hidden flex flex-col";
 
             const myRole = data.round.roles[currentUser.id];
-            let roleName = "", infoText = "";
+            let roleName = "", infoText = "", consigne = "";
             let canGuess = false;
+
+            // Filter guesses for current user
+            const myGuesses = data.round.guesses.filter(g => g.playerId === currentUser.id);
+            const attemptsLeft = 5 - myGuesses.length;
 
             if (myRole === 'INFORMER') {
                 roleName = "INFORMATEUR";
-                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT CODE: <span class="text-neon-green text-xl glow">${data.round.word}</span>`;
+                consigne = "Faites deviner le mot à vos Agents sans que les Intercepteurs ne comprennent.<br>PARLEZ !";
+                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT: <span class="text-neon-green text-xl glow">${data.round.word}</span>`;
             } else if (myRole === 'TARGET') {
                 roleName = "AGENT CIBLE";
-                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT CODE: <span class="text-red-500">???</span>`;
+                consigne = "Écoutez l'Informateur. Déduisez le mot caché.<br>Attention aux oreilles ennemies.";
+                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT: <span class="text-red-500">???</span>`;
                 canGuess = true;
             } else {
                 roleName = "INTERCEPTEUR";
-                infoText = `THEME: <span class="text-red-500">INCONNU</span><br>MOT CODE: <span class="text-red-500">???</span>`;
+                consigne = "Écoutez la conversation. Détectez le mot secret.<br>Interceptez la transmission !";
+                infoText = `THEME: <span class="text-red-500">INCONNU</span><br>MOT: <span class="text-red-500">???</span>`;
                 canGuess = true;
             }
 
@@ -656,72 +623,45 @@
                 <div class="p-4 flex flex-col gap-4 h-full">
                     <div class="glass p-4 text-center border-l-2 border-neon-green">
                         ${infoText}
+                        <div class="mt-2 text-xs text-gray-400 italic border-t border-gray-700 pt-2">${consigne}</div>
                     </div>
                     
-                    <div id="guess-feed" class="flex-1 overflow-y-auto min-h-[100px] text-xs font-mono space-y-1 p-2 bg-black/30 rounded border border-gray-800">
-                        ${data.round.guesses.map(g => `
-                            <div><span class="text-gray-500">[${fmtTimeShort(g.timestamp)}]</span> <span class="text-gray-300">${g.name}:</span> ${myRole === 'INFORMER' || g.word === data.round.word || myRole === 'INTERCEPTOR' ? g.word : '*****'}</div>
+                    <div class="flex-1 overflow-y-auto text-xs font-mono space-y-1 p-2 bg-black/30 rounded border border-gray-800">
+                        <div class="text-gray-500 text-center mb-2">-- JOURNAL DE BORD --</div>
+                        ${myGuesses.map(g => `
+                            <div><span class="text-gray-500">[${fmtTimeShort(g.timestamp)}]</span> <span class="text-neon-green">VOUS:</span> ${g.word}</div>
                         `).join('')}
+                        ${myGuesses.length === 0 ? '<div class="text-center text-gray-600 italic mt-4">Aucun essai...</div>' : ''}
                     </div>
 
                     ${canGuess ? `
                     <div class="mt-auto">
+                        <div class="text-[10px] text-gray-500 mb-1 text-right">ESSAIS: <span class="text-white font-bold">${attemptsLeft}/5</span></div>
                         <div class="flex gap-2">
-                            <input type="text" id="guess-input" placeholder="SAISIR VOTRE HYPOTHÈSE..." class="w-full bg-black border border-gray-600 p-3 text-white font-bold uppercase focus:border-neon-green outline-none">
-                            <button onclick="submitGuess()" class="bg-gray-800 border border-gray-600 text-white px-4 hover:bg-gray-700">></button>
+                            <input type="text" id="guess-input" ${attemptsLeft <= 0 ? 'disabled' : ''} placeholder="${attemptsLeft <= 0 ? 'TERMINÉ' : 'VOTRE DÉDUCTION...'}" class="w-full bg-black border border-gray-600 p-3 text-white font-bold uppercase focus:border-neon-green outline-none disabled:opacity-50">
+                            <button onclick="submitGuess()" ${attemptsLeft <= 0 ? 'disabled' : ''} class="bg-gray-800 border border-gray-600 text-white px-4 hover:bg-gray-700 disabled:opacity-50">></button>
                         </div>
                     </div>
-                    ` : '<div class="mt-auto text-center text-xs text-gray-500">TRANSMETTEZ LE CODE ORALEMENT. DO NOT TYPE.</div>'}
+                    ` : '<div class="mt-auto text-center text-xs text-gray-500 italic">SUPERVISEZ LA FRÉQUENCE.</div>'}
                 </div>
             `;
         }
 
-        // --- FIN DE MANCHE ---
-        window.stopRound = async () => {
-            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-            await updateDoc(lobbyRef, { state: 'finished' });
+        // --- SHARE ---
+        window.shareCode = () => {
+            const t = `MISSION ${currentLobbyCode}`;
+            if (navigator.share) navigator.share({ title: 'INTERCEPTION', text: t, url: location.href });
+            else navigator.clipboard.writeText(t).then(() => showToast("COPIÉ", "success"));
         };
 
-        window.endRound = async (data, reason, winningGuess = null) => {
-            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-            let result = 'FAIL';
-            let scoresUpdate = { ...data.scores };
-
-            if (reason === 'INTERCEPTOR_WIN' && winningGuess) {
-                result = 'INTERCEPTOR_WIN';
-                const winnerId = winningGuess.playerId;
-                scoresUpdate[winnerId] = (scoresUpdate[winnerId] || 0) + 3;
-            } else if (reason === 'SPY_WIN' && winningGuess) {
-                result = 'SPIES_WIN';
-                const winnerId = winningGuess.playerId;
-                let informerId = null;
-                for (let [pid, role] of Object.entries(data.round.roles)) {
-                    if (role === 'INFORMER') informerId = pid;
-                }
-                scoresUpdate[winnerId] = (scoresUpdate[winnerId] || 0) + 2;
-                if (informerId) scoresUpdate[informerId] = (scoresUpdate[informerId] || 0) + 2;
+        // Init
+        window.addEventListener('load', () => {
+            const restored = restoreSession();
+            if (!restored) {
+                const p = new URLSearchParams(window.location.search);
+                if (p.get('room')) inputs.joinCode.value = p.get('room');
             }
-
-            await updateDoc(lobbyRef, {
-                state: 'finished',
-                scores: scoresUpdate,
-                "round.result": result
-            });
-        }
-
-        // --- 6. Gestion Joueurs ---
-        window.kickPlayer = async (playerJson) => {
-            const player = JSON.parse(decodeURIComponent(playerJson));
-            if (confirm(`EXPULSER L'AGENT ${player.name} ?`)) {
-                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
-                    players: arrayRemove(player)
-                });
-            }
-        };
-
-        window.renamePlayer = async (playerJson) => {
-            // Deprecated/Simplified for this mode
-        };
+        });
     </script>
 </body>
 
