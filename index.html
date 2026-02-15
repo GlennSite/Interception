@@ -406,7 +406,6 @@
                         currentLobbyCode = s.code;
                         inputs.username.value = s.user.name;
                         inputs.joinCode.value = s.code;
-                        // For restored session, we don't force auth immediately but rely on listener to fail if needed
                         setupLobbyListener(s.code);
                         return true;
                     }
@@ -415,19 +414,52 @@
             return false;
         }
 
+        // Generate a random 4-letter code avoiding ambiguous letters
         function generateCode() { let c = "ABCDEFGHJKLMNPQRSTUVWXYZ", r = ""; for (let i = 0; i < 4; i++)r += c.charAt(Math.floor(Math.random() * c.length)); return r; }
+        // Robust ID generator: Uses random string
+        function generateId() { return "anon_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
 
         function showToast(msg, type = 'error') {
             const t = document.getElementById('toast');
             t.innerText = msg;
             t.className = `fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border ${type === 'success' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'} px-6 py-3 shadow-lg text-sm font-bold w-max max-w-[90%] text-center uppercase tracking-widest`;
             t.classList.remove('hidden');
-            setTimeout(() => t.classList.add('hidden'), 3000);
+            setTimeout(() => t.classList.add('hidden'), 3500);
         }
         function switchScreen(name) {
             Object.values(screens).forEach(s => s.classList.add('hidden'));
             screens[name].classList.remove('hidden');
             screens[name].classList.add('fade-in');
+        }
+
+        /**
+         * Authenticater Helper.
+         * Tries Firebase Anonymous Auth first. 
+         * If it fails (e.g. not configured in console), falls back to a generated local ID.
+         */
+        async function getUserId() {
+            // 1. If we already have a Firebase user, use it
+            if (auth.currentUser) return auth.currentUser.uid;
+
+            // 2. Try to sign in anonymously
+            try {
+                const cred = await signInAnonymously(auth);
+                return cred.user.uid;
+            } catch (e) {
+                console.warn("Authentication failed or not configured. Falling back to simple ID.", e.code);
+
+                // 3. Fallback: Use stored ID or generate new simple one
+                // This allows the game to work if DB rules are "public" even if Auth is disabled
+                if (currentUser.id) return currentUser.id;
+
+                // Check if we have a persisted fallback ID
+                let fallback = localStorage.getItem('interception_fallback_id');
+                if (!fallback) {
+                    fallback = generateId();
+                    localStorage.setItem('interception_fallback_id', fallback);
+                }
+                return fallback;
+            }
         }
 
         // --- LOGIC ---
@@ -494,11 +526,9 @@
             if (!name) return showToast("IDENTIFIANT REQUIS");
 
             try {
-                // AUTH
-                const userCred = await signInAnonymously(auth);
-                const uid = userCred.user.uid;
-
+                const uid = await getUserId();
                 const code = generateCode();
+
                 currentUser = { id: uid, name, isAdmin: true };
                 currentLobbyCode = code;
 
@@ -508,11 +538,18 @@
                     players: [{ id: uid, name, joinedAt: Date.now() }],
                     round: null
                 });
+
+                showToast("CANAL SÉCURISÉ ÉTABLI", "success");
                 saveSession(currentUser, code);
                 setupLobbyListener(code);
             } catch (e) {
-                console.error(e);
-                showToast("ERREUR: " + (e.code || e.message));
+                console.error("Create Error:", e);
+                // If permission denied, it's definitively database rules
+                if (e.code && e.code.includes('permission-denied')) {
+                    showToast("ACCÈS REFUSÉ (BDD VERROUILLÉE)");
+                } else {
+                    showToast("ERREUR INIT: " + (e.message || e));
+                }
             }
         };
 
@@ -522,17 +559,16 @@
             if (!name || code.length !== 4) return showToast("DONNEES INVALIDES");
 
             try {
-                // AUTH
-                const userCred = await signInAnonymously(auth);
-                const uid = userCred.user.uid;
+                const uid = await getUserId();
 
                 currentUser = { id: uid, name, isAdmin: false };
                 currentLobbyCode = code;
                 const ref = doc(db, "lobbies", code);
+
                 const snap = await getDoc(ref);
                 if (!snap.exists()) return showToast("FREQUENCE INCONNUE");
 
-                // Check dupes
+                // Update players list if not already inside
                 const players = snap.data().players || [];
                 if (!players.find(p => p.id === uid)) {
                     await updateDoc(ref, { players: arrayUnion({ id: uid, name, joinedAt: Date.now() }) });
@@ -541,8 +577,8 @@
                 saveSession(currentUser, code);
                 setupLobbyListener(code);
             } catch (e) {
-                console.error(e);
-                showToast("ERREUR: " + (e.code || e.message));
+                console.error("Join Error:", e);
+                showToast("ERREUR LIAISON: " + (e.code || e.message));
             }
         };
 
@@ -771,7 +807,7 @@
 
         window.addEventListener('load', () => {
             // Attempt to auth silently on load
-            signInAnonymously(auth).then(c => console.log("Auth Restored:", c.user.uid)).catch(console.error);
+            signInAnonymously(auth).then(c => console.log('Auth ready', c.user.uid)).catch(console.warn);
 
             if (!restoreSession()) { const p = new URLSearchParams(window.location.search).get('room'); if (p) inputs.joinCode.value = p; }
         });
