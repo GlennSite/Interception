@@ -267,549 +267,421 @@
         </div>
     </div>
 
-    <!-- GAME SCREEN -->
-    <div id="screen-game" class="w-full max-w-md h-full flex flex-col hidden z-20 relative pt-4 pb-8">
-        <!-- Header Info -->
-        <div class="flex justify-between items-center mb-4 px-2 border-b border-gray-800 pb-2">
-            <div class="flex flex-col">
-                <span class="text-[10px] text-gray-500 uppercase tracking-widest">MISSION EN COURS</span>
-                <span id="game-timer" class="text-3xl text-white font-mono font-bold">03:00</span>
-            </div>
-            <div class="text-right">
-                <div class="text-[10px] text-gray-500 uppercase tracking-widest">GROUPE</div>
-                <span id="group-id-display" class="text-neon-green font-bold text-xl tracking-widest">ALPHA</span>
-            </div>
-        </div>
-
-        <!-- Role Card -->
-        <div id="role-card"
-            class="glass p-6 rounded-2xl mb-6 flex flex-col items-center justify-center text-center border-t-4 transition-all duration-500 min-h-[200px]">
-            <div id="role-icon" class="text-5xl mb-4"></div>
-            <h2 id="role-title" class="text-2xl font-bold text-white uppercase tracking-widest mb-1"></h2>
-            <p id="role-desc" class="text-gray-400 text-xs font-mono mb-4 px-4"></p>
-
-            <!-- SECRET SECTION (Informant only) -->
-            <div id="secret-container"
-                class="hidden bg-black/50 p-4 rounded border border-gray-700 w-full animate-pulse-slow">
-                <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">CIBLE A TRANSMETTRE</div>
-                <div id="secret-word" class="text-3xl font-bold text-neon-green tracking-widest uppercase">???</div>
-                <div id="secret-theme" class="text-xs text-gray-400 mt-2 font-mono">THÈME: <span
-                        class="text-white">...</span></div>
-            </div>
-
-            <!-- GUESS SECTION (Target & Interceptor) -->
-            <div id="guess-container" class="hidden w-full flex flex-col gap-3">
-                <div class="text-[10px] text-gray-500 uppercase tracking-widest text-left">THÈME: <span
-                        id="public-theme" class="text-white font-bold ml-1">???</span></div>
-                <input type="text" id="guess-input" placeholder="ENTRER LE CODE..." autocomplete="off"
-                    class="w-full bg-black/80 border border-gray-600 text-white px-4 py-3 text-center text-lg font-bold uppercase tracking-widest placeholder-gray-700 focus:border-neon-green focus:bg-black transition-all">
-                <button onclick="submitGuess()" id="btn-submit"
-                    class="w-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 font-bold py-3 uppercase tracking-widest text-xs active:scale-95 transition-all">
-                    CONFIRMER L'INTERCEPTION
-                </button>
-            </div>
-        </div>
-
-        <!-- Game Status / Feedback -->
-        <div id="game-feedback" class="glass p-4 text-center hidden mb-4">
-            <span class="text-neon-green font-bold uppercase tracking-widest animate-pulse">TRANSMISSION EN
-                COURS...</span>
-        </div>
-
-        <!-- Admin Force Stop -->
-        <div id="admin-game-controls" class="mt-auto hidden">
-            <button onclick="stopRound()"
-                class="w-full border border-red-900/50 text-red-900 hover:bg-red-900/10 hover:text-red-500 py-3 text-xs font-bold uppercase tracking-widest transition-all">
-                ⚠️ ARRÊT D'URGENCE
-            </button>
-        </div>
-    </div>
-
-    <!-- RESULTS SCREEN -->
-    <div id="screen-results" class="w-full max-w-md h-full flex flex-col hidden z-20 relative pt-10">
-        <h1 class="text-4xl font-bold text-center text-white tracking-[0.2em] mb-2">RAPPORT</h1>
-        <div class="h-1 w-20 bg-gray-800 mx-auto mb-8"></div>
-
-        <div id="results-container" class="flex-1 overflow-y-auto no-scrollbar space-y-4 px-2">
-            <!-- Results injected here -->
-        </div>
-
-        <div id="admin-results-controls" class="mt-4 hidden pb-8">
-            <button onclick="startNewRound()"
-                class="w-full bg-neon-green text-black font-bold py-4 text-lg shadow-[0_0_15px_rgba(0,255,65,0.4)] active:scale-95 transition-all tracking-widest uppercase">
-                NOUVELLE MISSION
-            </button>
-        </div>
-        <div id="waiting-next-round" class="mt-4 pb-8 text-center hidden">
-            <p class="text-gray-500 text-xs font-mono animate-pulse">ATTENTE DU COMMANDANT...</p>
-        </div>
-    </div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-        // --- CONFIG ---
+        // --- CONFIGURATION FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyCiarvgeK3eS8S1SxBj3SMW0L4AzsBkig8",
             authDomain: "interception-e9a6d.firebaseapp.com",
             projectId: "interception-e9a6d",
             storageBucket: "interception-e9a6d.firebasestorage.app",
             messagingSenderId: "533782599002",
-            appId: "1:533782599002:web:8ec56b56a05bc0f24f4f63"
+            appId: "1:533782599002:web:8ec56b56a05bc0f24f4f63",
+            measurementId: "G-38QTT8BH8G"
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app);
 
-        // --- DATA ---
-        const WORDS_DB = [
-            { t: "ANIMAUX", w: ["LION", "AIGLE", "REQUIN", "ELEPHANT", "GIRAFE", "LOUP", "OURS", "TIGRE", "SERPENT", "PANDA"] },
-            { t: "METIERS", w: ["POMPIER", "ACTEUR", "MEDECIN", "AVOCAT", "PILOTE", "CHEF", "MAÇON", "POLICIER", "JUGE", "PLOMBIER"] },
-            { t: "COULEURS", w: ["ROUGE", "BLEU", "VERT", "JAUNE", "VIOLET", "ORANGE", "NOIR", "BLANC", "ROSE", "INDIGO"] },
-            { t: "OBJETS", w: ["LAMPE", "STYLO", "TELEPHONE", "LIVRE", "MONTRE", "REGLE", "LUNETTES", "CLE", "ALLUMETTE", "MIROIR"] },
-            { t: "NOURRITURE", w: ["PIZZA", "SUSHI", "BURGER", "PATES", "SALADE", "POMME", "BANANE", "CHOCOLAT", "GLACE", "FROMAGE"] },
-            { t: "LIEUX", w: ["ECOLE", "PLAGE", "MONTAGNE", "FORET", "HOPITAL", "AEROPORT", "GARA", "HOTEL", "CINEMA", "PARC"] }
-        ];
-
-        // --- STATE ---
+        // --- ÉTAT GLOBAL ---
         let currentUser = { id: null, name: null, isAdmin: false };
         let currentLobbyCode = null;
-        let lobbyData = null;
-        let timerInterval = null;
         let lobbyUnsubscribe = null;
 
-        // --- DOM ---
+        // --- DOM ELEMENTS ---
         const screens = {
             menu: document.getElementById('screen-menu'),
-            lobby: document.getElementById('screen-lobby'),
-            game: document.getElementById('screen-game'),
-            results: document.getElementById('screen-results')
+            lobby: document.getElementById('screen-lobby')
         };
         const inputs = {
             username: document.getElementById('username'),
-            joinCode: document.getElementById('join-code'),
-            guess: document.getElementById('guess-input')
+            joinCode: document.getElementById('join-code')
         };
 
-        // --- HELPERS ---
-        function saveSession(user, code) { localStorage.setItem('interception_session', JSON.stringify({ user, code, timestamp: Date.now() })); }
-        function clearSession() { localStorage.removeItem('interception_session'); }
+        // --- HELPERS PERSISTENCE ---
+        function saveSession(user, code) {
+            localStorage.setItem('interception_session', JSON.stringify({
+                user: user,
+                code: code,
+                timestamp: Date.now()
+            }));
+        }
+
+        function clearSession() {
+            localStorage.removeItem('interception_session');
+        }
+
         function restoreSession() {
             const raw = localStorage.getItem('interception_session');
             if (raw) {
                 try {
-                    const s = JSON.parse(raw);
-                    if (s.user && s.code) {
-                        currentUser = s.user;
-                        currentLobbyCode = s.code;
-                        inputs.username.value = s.user.name;
-                        inputs.joinCode.value = s.code;
-                        setupLobbyListener(s.code);
+                    const session = JSON.parse(raw);
+                    // On pourrait ajouter une verif de timestamp ici (ex: session < 2h)
+                    // Pour l'instant on restaure bêtement
+                    if (session.user && session.code) {
+                        console.log("Session restaurée:", session);
+                        currentUser = session.user;
+                        currentLobbyCode = session.code;
+
+                        // Populate UI input to be clean 
+                        inputs.username.value = session.user.name;
+                        inputs.joinCode.value = session.code;
+
+                        setupLobbyListener(session.code);
+                        switchScreen('lobby');
+                        document.getElementById('lobby-code-display').innerText = session.code;
                         return true;
                     }
-                } catch (e) { clearSession(); }
+                } catch (e) {
+                    console.error("Erreur restore session", e);
+                    clearSession();
+                }
             }
             return false;
         }
 
-        // Generate a random 4-letter code avoiding ambiguous letters
-        function generateCode() { let c = "ABCDEFGHJKLMNPQRSTUVWXYZ", r = ""; for (let i = 0; i < 4; i++)r += c.charAt(Math.floor(Math.random() * c.length)); return r; }
-        // Robust ID generator: Uses random string
-        function generateId() { return "anon_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
-
-        function showToast(msg, type = 'error') {
-            const t = document.getElementById('toast');
-            t.innerText = msg;
-            t.className = `fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border ${type === 'success' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'} px-6 py-3 shadow-lg text-sm font-bold w-max max-w-[90%] text-center uppercase tracking-widest`;
-            t.classList.remove('hidden');
-            setTimeout(() => t.classList.add('hidden'), 3500);
-        }
-        function switchScreen(name) {
-            Object.values(screens).forEach(s => s.classList.add('hidden'));
-            screens[name].classList.remove('hidden');
-            screens[name].classList.add('fade-in');
+        // --- UTILITAIRES ---
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
         }
 
-        /**
-         * Authenticater Helper.
-         * Tries Firebase Anonymous Auth first. 
-         * If it fails (e.g. not configured in console), falls back to a generated local ID.
-         */
-        async function getUserId() {
-            // 1. If we already have a Firebase user, use it
-            if (auth.currentUser) return auth.currentUser.uid;
-
-            // 2. Try to sign in anonymously
-            try {
-                const cred = await signInAnonymously(auth);
-                return cred.user.uid;
-            } catch (e) {
-                console.warn("Authentication failed or not configured. Falling back to simple ID.", e.code);
-
-                // 3. Fallback: Use stored ID or generate new simple one
-                // This allows the game to work if DB rules are "public" even if Auth is disabled
-                if (currentUser.id) return currentUser.id;
-
-                // Check if we have a persisted fallback ID
-                let fallback = localStorage.getItem('interception_fallback_id');
-                if (!fallback) {
-                    fallback = generateId();
-                    localStorage.setItem('interception_fallback_id', fallback);
-                }
-                return fallback;
+        function generateLobbyCode() {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            let result = "";
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
+            return result;
         }
 
-        // --- LOGIC ---
-
-        function pickWord() {
-            const cat = WORDS_DB[Math.floor(Math.random() * WORDS_DB.length)];
-            const word = cat.w[Math.floor(Math.random() * cat.w.length)];
-            return { word, theme: cat.t };
-        }
-
-        function distributeRoles(players) {
-            const shuffled = [...players].sort(() => Math.random() - 0.5);
-            const count = shuffled.length;
-            const groups = [];
-
-            if (count <= 5) {
-                let group = { players: [], wordObj: pickWord(), status: 'active', id: 'ALPHA' };
-                let roles = [];
-                if (count === 3) roles = ['informant', 'target', 'interceptor'];
-                else if (count === 4) roles = ['informant', 'target', 'interceptor', 'interceptor'];
-                else if (count === 5) roles = ['informant', 'target', 'target', 'interceptor', 'interceptor'];
-
-                shuffled.forEach((p, i) => { group.players.push({ id: p.id, name: p.name, role: roles[i] }); });
-                groups.push(group);
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            // Reset base styles depending on type ? For this theme we keep it strict/red usually
+            if (type === 'success') {
+                toast.className = "fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-green-500 text-green-500 px-6 py-3 shadow-[0_0_15px_rgba(0,255,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center";
             } else {
-                let splits = [];
-                if (count === 6) splits = [3, 3];
-                else if (count === 7) splits = [3, 4];
-                else if (count === 8) splits = [4, 4];
-                else {
-                    let remain = count;
-                    while (remain > 0) {
-                        if (remain >= 4) { splits.push(4); remain -= 4; }
-                        else { splits.push(remain); remain = 0; }
-                    }
-                }
-
-                let pIndex = 0;
-                const groupNames = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'];
-                splits.forEach((size, idx) => {
-                    let group = { players: [], wordObj: pickWord(), status: 'active', id: groupNames[idx] || `G-${idx + 1}` };
-                    let chunk = shuffled.slice(pIndex, pIndex + size);
-                    pIndex += size;
-
-                    let roles = [];
-                    if (size === 3) roles = ['informant', 'target', 'interceptor'];
-                    else if (size === 4) roles = ['informant', 'target', 'interceptor', 'interceptor'];
-                    else {
-                        roles.push('informant');
-                        if (size > 1) roles.push('target');
-                        while (roles.length < size) roles.push('interceptor');
-                    }
-                    chunk.forEach((p, i) => { group.players.push({ id: p.id, name: p.name, role: roles[i] }); });
-                    groups.push(group);
-                });
+                toast.className = "fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-red-500 text-red-500 px-6 py-3 shadow-[0_0_15px_rgba(255,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center";
             }
-            return groups;
+
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
-        // --- EVENTS ---
+        function switchScreen(screenName) {
+            screens.menu.classList.add('hidden');
+            screens.lobby.classList.add('hidden');
+            screens[screenName].classList.remove('hidden');
+            screens[screenName].classList.add('fade-in');
+        }
 
+        // --- LOGIQUE METIER ---
+
+        // 1. Créer une partie
         window.createGame = async () => {
-            const name = inputs.username.value.trim().toUpperCase();
-            if (!name) return showToast("IDENTIFIANT REQUIS");
+            const username = inputs.username.value.trim();
+            if (!username) return showToast("IDENTITE REQUISE");
+
+            const code = generateLobbyCode();
+            const userId = generateId();
+
+            currentUser = { id: userId, name: username, isAdmin: true };
+            currentLobbyCode = code;
 
             try {
-                const uid = await getUserId();
-                const code = generateCode();
-
-                currentUser = { id: uid, name, isAdmin: true };
-                currentLobbyCode = code;
-
                 await setDoc(doc(db, "lobbies", code), {
-                    adminId: uid,
+                    adminId: userId,
+                    createdAt: Date.now(),
                     state: "waiting",
-                    players: [{ id: uid, name, joinedAt: Date.now() }],
-                    round: null
+                    players: [{
+                        id: userId,
+                        name: username,
+                        joinedAt: Date.now()
+                    }]
                 });
 
-                showToast("CANAL SÉCURISÉ ÉTABLI", "success");
-                saveSession(currentUser, code);
+                saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
+                switchScreen('lobby');
+                document.getElementById('lobby-code-display').innerText = code;
+
             } catch (e) {
-                console.error("Create Error:", e);
-                // If permission denied, it's definitively database rules
-                if (e.code && e.code.includes('permission-denied')) {
-                    showToast("ACCÈS REFUSÉ (BDD VERROUILLÉE)");
-                } else {
-                    showToast("ERREUR INIT: " + (e.message || e));
-                }
+                console.error(e);
+                showToast("ECHEC CREATION SYSTEME");
             }
         };
 
+        // 2. Rejoindre une partie
         window.joinGame = async () => {
-            const name = inputs.username.value.trim().toUpperCase();
+            const username = inputs.username.value.trim();
             const code = inputs.joinCode.value.trim().toUpperCase();
-            if (!name || code.length !== 4) return showToast("DONNEES INVALIDES");
+
+            if (!username) return showToast("IDENTITE REQUISE");
+            if (code.length !== 4) return showToast("CODE PROTOCOLE INVALIDE");
+
+            const userId = generateId();
+            currentUser = { id: userId, name: username, isAdmin: false };
+            currentLobbyCode = code;
+
+            const lobbyRef = doc(db, "lobbies", code);
 
             try {
-                const uid = await getUserId();
+                const lobbySnap = await getDoc(lobbyRef);
 
-                currentUser = { id: uid, name, isAdmin: false };
-                currentLobbyCode = code;
-                const ref = doc(db, "lobbies", code);
-
-                const snap = await getDoc(ref);
-                if (!snap.exists()) return showToast("FREQUENCE INCONNUE");
-
-                // Update players list if not already inside
-                const players = snap.data().players || [];
-                if (!players.find(p => p.id === uid)) {
-                    await updateDoc(ref, { players: arrayUnion({ id: uid, name, joinedAt: Date.now() }) });
+                if (!lobbySnap.exists()) {
+                    return showToast("FREQUENCE INCONNUE");
                 }
 
-                saveSession(currentUser, code);
+                await updateDoc(lobbyRef, {
+                    players: arrayUnion({
+                        id: userId,
+                        name: username,
+                        joinedAt: Date.now()
+                    })
+                });
+
+                saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
+                switchScreen('lobby');
+                document.getElementById('lobby-code-display').innerText = code;
+
             } catch (e) {
-                console.error("Join Error:", e);
-                showToast("ERREUR LIAISON: " + (e.code || e.message));
+                console.error(e);
+                showToast("CONNEXION IMPOSSIBLE");
             }
         };
 
-        window.startRound = async () => {
-            if (!currentUser.isAdmin) return;
-            if (lobbyData.players.length < 3) return showToast("MINIMUM 3 AGENTS REQUIS", "error");
-            const groups = distributeRoles(lobbyData.players);
-            await updateDoc(doc(db, "lobbies", currentLobbyCode), {
-                state: 'playing',
-                round: { startTime: Date.now(), duration: 180, groups: groups }
-            });
-        };
+        // 3. Quitter la partie
+        window.leaveGame = async () => {
+            if (currentLobbyCode && currentUser.id) {
+                if (!currentUser.isAdmin) {
+                    if (!confirm("CONFIRMATION: VOULEZ-VOUS ABANDONNER LA MISSION ?")) return;
 
-        window.stopRound = async () => {
-            if (!currentUser.isAdmin) return;
-            if (!confirm("ARRETER LA MISSION EN COURS ?")) return;
-            await updateDoc(doc(db, "lobbies", currentLobbyCode), { state: 'finished' });
-        };
+                    try {
+                        const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+                        // On doit reconstruire l'objet exact pour que arrayRemove fonctionne
+                        // On le récupère depuis le state local ou on fait un snapshot.
+                        // Ici la meilleure technique pour éviter des soucis de sync est de chopper le user courant depuis la DB
+                        // Mais comme on stocke le joinedAt, il faut le connaitre.
+                        // Solution rapide : lire le doc, filtrer, update.
 
-        window.startNewRound = async () => {
-            if (!currentUser.isAdmin) return;
-            await updateDoc(doc(db, "lobbies", currentLobbyCode), { state: 'waiting', round: null });
-        };
+                        const snap = await getDoc(lobbyRef);
+                        if (snap.exists()) {
+                            const players = snap.data().players;
+                            const newPlayers = players.filter(p => p.id !== currentUser.id);
+                            await updateDoc(lobbyRef, { players: newPlayers });
+                        }
 
-        window.submitGuess = async () => {
-            const guess = inputs.guess.value.trim().toUpperCase();
-            if (!guess) return;
-            const groupIdx = lobbyData.round.groups.findIndex(g => g.players.find(p => p.id === currentUser.id));
-            if (groupIdx === -1) return;
-            const group = lobbyData.round.groups[groupIdx];
-            const myRoleData = group.players.find(p => p.id === currentUser.id);
-
-            const normalizedGuess = guess.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const normalizedTarget = group.wordObj.word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-            if (normalizedGuess === normalizedTarget) {
-                let resultStatus = myRoleData.role === 'target' ? "target_won" : "interceptor_won";
-                const newGroups = [...lobbyData.round.groups];
-                newGroups[groupIdx].status = resultStatus;
-                newGroups[groupIdx].winnerId = currentUser.id;
-                await updateDoc(doc(db, "lobbies", currentLobbyCode), { "round.groups": newGroups });
-            } else {
-                showToast("CODE INCORRECT", "error");
-                inputs.guess.value = "";
-                inputs.guess.classList.add('animate-shake');
+                        clearSession();
+                        location.reload();
+                        return;
+                    } catch (e) {
+                        console.error(e);
+                        // Fallback si erreur réseau, on quitte au moins nous même
+                        clearSession();
+                        location.reload();
+                    }
+                } else {
+                    if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME. CONFIRMER ?")) {
+                        deleteLobby();
+                    }
+                }
             }
         };
 
+        // 4. Supprimer le lobby
+        window.deleteLobby = async () => {
+            if (!currentUser.isAdmin) return;
+            // Admin button has explicit confirmation already in UI logic usually, but here:
+            if (!confirm("CONFIRMATION REQUISE: CECI EFFACERA TOUTE TRACE DE LA MISSION.")) return;
+
+            try {
+                await deleteDoc(doc(db, "lobbies", currentLobbyCode));
+                clearSession();
+            } catch (e) { showToast("ERREUR SUPPRESSION"); }
+        };
+
+        // 5. Update State
         window.updateGameState = async (newState) => {
             if (!currentUser.isAdmin) return;
-            await updateDoc(doc(db, "lobbies", currentLobbyCode), { state: newState });
+            try {
+                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
+                    state: newState
+                });
+            } catch (e) { showToast("ERREUR SIGNAL"); }
         };
 
-        // --- VIEW UPDATES ---
-
-        function updateTimer() {
-            if (!lobbyData || lobbyData.state !== 'playing' || !lobbyData.round) return;
-            const elapsed = Math.floor((Date.now() - lobbyData.round.startTime) / 1000);
-            const remaining = Math.max(0, lobbyData.round.duration - elapsed);
-            const m = Math.floor(remaining / 60).toString().padStart(2, '0');
-            const s = (remaining % 60).toString().padStart(2, '0');
-            const el = document.getElementById('game-timer');
-            if (el) {
-                el.innerText = `${m}:${s}`;
-                if (remaining < 30) el.classList.add('text-red-500'); else el.classList.remove('text-red-500');
+        // 6. Gestion Joueurs
+        window.kickPlayer = async (playerJson) => {
+            const player = JSON.parse(decodeURIComponent(playerJson));
+            if (confirm(`EXPULSER L'AGENT ${player.name} ?`)) {
+                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
+                    players: arrayRemove(player)
+                });
             }
-        }
+        };
 
-        function renderGameView(round) {
-            let myGroup = null, myPlayer = null;
-            if (!round || !round.groups) return;
-            round.groups.forEach(g => { const p = g.players.find(x => x.id === currentUser.id); if (p) { myGroup = g; myPlayer = p; } });
-            if (!myPlayer) { document.getElementById('role-title').innerText = "OBSERVATEUR"; return; }
-
-            document.getElementById('group-id-display').innerText = myGroup.id;
-            const rTitle = document.getElementById('role-title');
-            const rDesc = document.getElementById('role-desc');
-            const rIcon = document.getElementById('role-icon');
-            const boxSecret = document.getElementById('secret-container');
-            const boxGuess = document.getElementById('guess-container');
-            const inputLabel = document.getElementById('public-theme');
-
-            document.getElementById('role-card').className = "glass p-6 rounded-2xl mb-6 flex flex-col items-center justify-center text-center border-t-4 transition-all duration-500 min-h-[200px]";
-
-            if (myPlayer.role === 'informant') {
-                rTitle.innerText = "INFORMATEUR";
-                rTitle.className = "text-2xl font-bold text-blue-400 uppercase tracking-widest mb-1";
-                rDesc.innerText = "Transmettez le code. Évitez les interceptions.";
-                rIcon.innerText = "📡";
-                document.getElementById('role-card').classList.add('border-blue-500');
-                boxSecret.classList.remove('hidden');
-                boxGuess.classList.add('hidden');
-                document.getElementById('secret-word').innerText = myGroup.wordObj.word;
-                document.getElementById('secret-theme').innerHTML = `THÈME: <span class="text-white">${myGroup.wordObj.theme}</span>`;
-            } else if (myPlayer.role === 'target') {
-                rTitle.innerText = "CIBLE";
-                rTitle.className = "text-2xl font-bold text-green-400 uppercase tracking-widest mb-1";
-                rDesc.innerText = "Recevez le code de l'Informateur.";
-                rIcon.innerText = "🎯";
-                document.getElementById('role-card').classList.add('border-green-500');
-                boxSecret.classList.add('hidden');
-                boxGuess.classList.remove('hidden');
-                inputLabel.innerText = myGroup.wordObj.theme;
-                document.getElementById('btn-submit').innerText = "CONFIRMER RÉCEPTION";
-            } else if (myPlayer.role === 'interceptor') {
-                rTitle.innerText = "INTERCEPTEUR";
-                rTitle.className = "text-2xl font-bold text-red-400 uppercase tracking-widest mb-1";
-                rDesc.innerText = "Interceptez le code ennemi.";
-                rIcon.innerText = "🕶️";
-                document.getElementById('role-card').classList.add('border-red-500');
-                boxSecret.classList.add('hidden');
-                boxGuess.classList.remove('hidden');
-                inputLabel.innerText = "???";
-                document.getElementById('btn-submit').innerText = "CONFIRMER INTERCEPTION";
+        window.renamePlayer = async (playerJson) => {
+            const player = JSON.parse(decodeURIComponent(playerJson));
+            const newName = prompt("NOUVEAU NOM DE CODE:", player.name);
+            if (newName && newName !== player.name) {
+                const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+                const snap = await getDoc(lobbyRef);
+                let players = snap.data().players;
+                const index = players.findIndex(p => p.id === player.id);
+                if (index !== -1) {
+                    players[index].name = newName;
+                    await updateDoc(lobbyRef, { players: players });
+                }
             }
+        };
 
-            const feed = document.getElementById('game-feedback');
-            const guessInput = document.getElementById('guess-input');
-            const guessBtn = document.getElementById('btn-submit');
+        // 7. Partage
+        window.shareCode = () => {
+            const url = window.location.origin + window.location.pathname + "?room=" + currentLobbyCode;
+            const text = `MISSION INTERCEPTION // FREQUENCE: ${currentLobbyCode}\n${url}`;
 
-            if (myGroup.status !== 'active') {
-                feed.classList.remove('hidden');
-                guessInput.disabled = true;
-                guessBtn.disabled = true;
-                guessBtn.classList.add('opacity-50');
-                if (myGroup.status === 'target_won') feed.innerHTML = `<span class="text-green-500 block text-xl">✅ TRANSMISSION RÉUSSIE</span>`;
-                else if (myGroup.status === 'interceptor_won') feed.innerHTML = `<span class="text-red-500 block text-xl">🚫 MESSAGE INTERCEPTÉ</span>`;
-                else if (myGroup.status === 'failed') feed.innerHTML = `<span class="text-gray-500 block text-xl">❌ ECHEC MISSION</span>`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'INTERCEPTION // MISSION',
+                    text: text,
+                    url: url
+                }).catch(console.error);
             } else {
-                feed.classList.add('hidden');
-                guessInput.disabled = false;
-                guessBtn.disabled = false;
-                guessBtn.classList.remove('opacity-50');
+                navigator.clipboard.writeText(text).then(() => showToast("URL SECURISEE COPIEE", "success"));
             }
+        };
+
+        // --- LISTENER ---
+        function setupLobbyListener(code) {
+            if (lobbyUnsubscribe) lobbyUnsubscribe();
+
+            lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
+                if (!docSnap.exists()) {
+                    if (currentLobbyCode) {
+                        clearSession(); // Important: clear session if lobby died
+                        alert("CANAL OFF. MISSION AVORTÉE.");
+                        location.reload();
+                    }
+                    return;
+                }
+
+                const data = docSnap.data();
+
+                // Kick check
+                const amIInList = data.players.find(p => p.id === currentUser.id);
+                if (!amIInList && !currentUser.isAdmin) {
+                    clearSession(); // Kicked means kicked
+                    alert("ACCÈS REFUSÉ. VOUS AVEZ ÉTÉ EXCLU.");
+                    location.reload();
+                    return;
+                }
+
+                updateStatusUI(data.state);
+                renderPlayerList(data.players, data.adminId);
+
+                const adminPanel = document.getElementById('admin-controls');
+                if (currentUser.isAdmin) {
+                    adminPanel.classList.remove('hidden');
+                } else {
+                    adminPanel.classList.add('hidden');
+                }
+            });
         }
 
-        function renderResultsView(round) {
-            const container = document.getElementById('results-container');
-            container.innerHTML = "";
-            if (!round || !round.groups) return;
-            round.groups.forEach(g => {
-                let statusHTML = g.status === 'target_won' ? "<span class='text-green-500'>SUCCÈS</span>" : (g.status === 'interceptor_won' ? "<span class='text-red-500'>INTERCEPTÉ</span>" : "<span class='text-gray-500'>ECHEC</span>");
-                let infName = g.players.find(p => p.role === 'informant')?.name || "?";
-                let tarNames = g.players.filter(p => p.role === 'target').map(p => p.name).join(', ');
-                let intNames = g.players.filter(p => p.role === 'interceptor').map(p => p.name).join(', ');
-                const card = `
-                <div class="glass p-4 rounded-xl border border-gray-700 mb-4">
-                    <div class="flex justify-between items-start mb-2 border-b border-gray-800 pb-2">
-                        <span class="text-xs text-gray-500 font-bold tracking-widest">GROUPE ${g.id}</span>
-                        <div class="font-bold tracking-widest">${statusHTML}</div>
-                    </div>
-                    <div class="mb-3 text-center">
-                        <div class="text-[10px] text-gray-500 uppercase">CODE SECRET</div>
-                        <div class="text-2xl font-bold text-white tracking-[0.2em]">${g.wordObj.word}</div>
-                        <div class="text-[10px] text-gray-600 font-mono">${g.wordObj.theme}</div>
-                    </div>
-                    <div class="space-y-2 text-xs font-mono">
-                        <div class="flex justify-between items-center bg-blue-900/10 p-1 px-2 rounded"><span class="text-blue-400">📡 INF:</span><span class="text-white">${infName}</span></div>
-                        <div class="flex justify-between items-center bg-green-900/10 p-1 px-2 rounded"><span class="text-green-400">🎯 CIBLE:</span><span class="text-white">${tarNames}</span></div>
-                        <div class="flex justify-between items-center bg-red-900/10 p-1 px-2 rounded"><span class="text-red-400">🕶️ INT:</span><span class="text-white">${intNames}</span></div>
-                    </div>
-                </div>`;
-                container.insertAdjacentHTML('beforeend', card);
-            });
+        function updateStatusUI(state) {
+            const icon = document.getElementById('status-icon');
+            const title = document.getElementById('game-status-text');
+            const sub = document.getElementById('game-status-sub');
+            const container = document.getElementById('game-status-container');
+
+            // Reset base styles
+            container.className = "glass p-6 text-center mb-6 flex flex-col items-center justify-center min-h-[120px] border-l-4 transition-all duration-500 shrink-0";
+
+            switch (state) {
+                case 'waiting':
+                    icon.innerText = "⏳";
+                    title.innerText = "EN ATTENTE";
+                    sub.innerText = "AWAITING PROTOCOL INITIATION";
+                    container.classList.add('border-gray-500');
+                    break;
+                case 'playing':
+                    icon.innerText = "⚡";
+                    title.innerText = "MISSION EN COURS";
+                    sub.innerText = "OPERATIONAL";
+                    container.classList.add('border-neon-green', 'bg-green-900/10');
+                    title.classList.add('text-neon-green');
+                    break;
+                case 'paused':
+                    icon.innerText = "⚠";
+                    title.innerText = "STASE TEMP.";
+                    sub.innerText = "SYSTEM HALTED";
+                    container.classList.add('border-yellow-500', 'bg-yellow-900/10');
+                    title.classList.add('text-yellow-500');
+                    break;
+                case 'finished':
+                    icon.innerText = "🏁";
+                    title.innerText = "MISSION TERMINÉE";
+                    sub.innerText = "DEBRIEFING REQUIS";
+                    container.classList.add('border-red-500', 'bg-red-900/10');
+                    title.classList.add('text-red-500');
+                    break;
+            }
         }
 
         function renderPlayerList(players, adminId) {
             const list = document.getElementById('players-list');
             document.getElementById('player-count').innerText = players.length;
             list.innerHTML = '';
-            players.forEach(p => {
-                const isMe = p.id === currentUser.id, isAdmin = p.id === adminId;
-                const pSafe = encodeURIComponent(JSON.stringify(p));
-                let admHtml = (currentUser.isAdmin && !isMe) ? `<div class="flex gap-2 ml-2"><button onclick="renamePlayer('${pSafe}')" class="text-gray-500 hover:text-white">✎</button><button onclick="kickPlayer('${pSafe}')" class="text-red-800 hover:text-red-500 font-bold">✕</button></div>` : '';
-                const html = `<div class="flex justify-between items-center p-2 rounded border-b border-gray-800 bg-black/40 hover:bg-white/5 transition-colors"><div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full ${isMe ? 'bg-neon-green shadow-[0_0_5px_#00ff41]' : 'bg-gray-600'}"></div><div class="flex flex-col"><span class="font-mono text-sm tracking-widest ${isMe ? 'text-neon-green font-bold' : 'text-gray-300'}">${p.name}</span>${isAdmin ? '<span class="text-[9px] text-yellow-600 font-bold uppercase tracking-widest">COMMANDER</span>' : ''}</div></div>${admHtml}</div>`;
-                list.insertAdjacentHTML('beforeend', html);
-            });
-            const adm = document.getElementById('admin-controls');
-            if (currentUser.isAdmin) adm.classList.remove('hidden'); else adm.classList.add('hidden');
 
-            const launchBtn = document.querySelector("button[onclick=\"updateGameState('playing')\"]");
-            if (launchBtn) {
-                launchBtn.setAttribute('onclick', 'startRound()');
-                if (players.length < 3) launchBtn.classList.add('opacity-50', 'cursor-not-allowed'); else launchBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
+            players.forEach(player => {
+                const isAdmin = player.id === adminId;
+                const isMe = player.id === currentUser.id;
+                const playerSafe = encodeURIComponent(JSON.stringify(player));
 
-        function setupLobbyListener(code) {
-            if (lobbyUnsubscribe) lobbyUnsubscribe();
-            lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (snap) => {
-                if (!snap.exists()) { if (currentLobbyCode) { clearSession(); location.reload(); } return; }
-                const data = snap.data();
-                lobbyData = data;
-
-                if (data.state === 'waiting') {
-                    switchScreen('lobby');
-                    renderPlayerList(data.players, data.adminId);
-                } else if (data.state === 'playing') {
-                    switchScreen('game');
-                    renderGameView(data.round);
-                } else if (data.state === 'finished') {
-                    switchScreen('results');
-                    renderResultsView(data.round);
-                    if (currentUser.isAdmin) document.getElementById('admin-results-controls').classList.remove('hidden');
-                    else document.getElementById('waiting-next-round').classList.remove('hidden');
+                let adminActions = '';
+                if (currentUser.isAdmin && !isMe) {
+                    adminActions = `
+                        <div class="flex gap-2 ml-2">
+                        <button onclick="renamePlayer('${playerSafe}')" class="text-gray-500 hover:text-white transition-colors">✎</button>
+                        <button onclick="kickPlayer('${playerSafe}')" class="text-red-800 hover:text-red-500 transition-colors font-bold">✕</button>
+                        </div>
+                    `;
                 }
 
-                const kicked = !data.players.find(p => p.id === currentUser.id);
-                if (kicked && !currentUser.isAdmin) { clearSession(); alert("ACCÈS REFUSÉ."); location.reload(); }
-
-                const gameAdm = document.getElementById('admin-game-controls');
-                if (currentUser.isAdmin && data.state === 'playing') gameAdm.classList.remove('hidden'); else gameAdm.classList.add('hidden');
+                const html = `
+                    <div class="flex justify-between items-center p-2 rounded border-b border-gray-800 bg-black/40 hover:bg-white/5 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full ${isMe ? 'bg-neon-green shadow-[0_0_5px_#00ff41]' : 'bg-gray-600'}"></div>
+                            <div class="flex flex-col">
+                                <span class="font-mono text-sm tracking-widest ${isMe ? 'text-neon-green font-bold' : 'text-gray-300'}">
+                                    ${player.name}
+                                </span>
+                                ${isAdmin ? '<span class="text-[9px] text-yellow-600 font-bold uppercase tracking-widest">COMMANDER</span>' : ''}
+                            </div>
+                        </div>
+                        ${adminActions}
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', html);
             });
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(updateTimer, 1000);
         }
 
-        // --- GLOBAL EXPORTS ---
-        window.leaveGame = async () => { if (currentLobbyCode && currentUser.id) { if (!currentUser.isAdmin) { if (!confirm("CONFIRMATION: VOULEZ-VOUS ABANDONNER LA MISSION ?")) return; try { const ref = doc(db, "lobbies", currentLobbyCode); const s = await getDoc(ref); if (s.exists()) { const p = s.data().players.filter(x => x.id !== currentUser.id); await updateDoc(ref, { players: p }); } clearSession(); location.reload(); } catch (e) { console.error(e); clearSession(); location.reload(); } } else { if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME.")) deleteLobby(); } } };
-        window.deleteLobby = async () => { if (confirm("CONFIRMER DESTRUCTION ?")) { await deleteDoc(doc(db, "lobbies", currentLobbyCode)); clearSession(); } };
-        window.shareCode = () => { const u = window.location.origin + window.location.pathname + "?room=" + currentLobbyCode; navigator.clipboard.writeText(`MISSION: ${currentLobbyCode}\n${u}`).then(() => showToast("COPIÉ", "success")); };
-        window.kickPlayer = async (j) => { const p = JSON.parse(decodeURIComponent(j)); if (confirm(`EJECTER ${p.name}?`)) await updateDoc(doc(db, "lobbies", currentLobbyCode), { players: arrayRemove(p) }); };
-        window.renamePlayer = async (j) => { const p = JSON.parse(decodeURIComponent(j)); const n = prompt("NOM:", p.name); if (n && n !== p.name) { const ref = doc(db, "lobbies", currentLobbyCode); const s = await getDoc(ref); const pls = s.data().players; const idx = pls.findIndex(x => x.id === p.id); if (idx !== -1) { pls[idx].name = n; await updateDoc(ref, { players: pls }); } } };
-
-        window.createGame = createGame; window.joinGame = joinGame; window.startRound = startRound; window.stopRound = stopRound; window.startNewRound = startNewRound; window.submitGuess = submitGuess; window.updateGameState = updateGameState;
-
+        // --- INIT ---
         window.addEventListener('load', () => {
-            // Attempt to auth silently on load
-            signInAnonymously(auth).then(c => console.log('Auth ready', c.user.uid)).catch(console.warn);
+            // 1. Tenter de restaurer la session
+            const restored = restoreSession();
 
-            if (!restoreSession()) { const p = new URLSearchParams(window.location.search).get('room'); if (p) inputs.joinCode.value = p; }
+            // 2. Si pas de restauration, check URL room var
+            if (!restored) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomParam = urlParams.get('room');
+                if (roomParam) {
+                    inputs.joinCode.value = roomParam;
+                }
+            }
         });
 
     </script>
