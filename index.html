@@ -148,6 +148,10 @@
             color: #ff3333;
             text-shadow: 0 0 5px rgba(255, 51, 51, 0.5);
         }
+
+        .glow {
+            text-shadow: 0 0 10px currentColor;
+        }
     </style>
 </head>
 
@@ -223,31 +227,7 @@
 
         <!-- Admin Controls -->
         <div id="admin-controls" class="hidden flex flex-col gap-3 mb-6 shrink-0">
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="shareCode()"
-                    class="bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-300 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:border-white">
-                    ✉️ TRANSMETTRE
-                </button>
-                <button onclick="deleteLobby()"
-                    class="bg-black hover:bg-red-900/20 border border-red-900/50 text-red-500 p-3 font-bold text-xs uppercase tracking-wider transition-all hover:border-red-500 hover:shadow-[0_0_10px_rgba(255,0,0,0.3)]">
-                    ✖ DETRUIRE
-                </button>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 mt-2">
-                <button onclick="updateGameState('playing')"
-                    class="col-span-1 bg-green-900/20 hover:bg-green-900/40 border border-green-700 text-green-400 p-3 font-bold shadow-[0_0_10px_rgba(0,255,0,0.1)] active:scale-95 transition-all uppercase text-xs">
-                    ▶ LAUNCH
-                </button>
-                <button onclick="updateGameState('paused')"
-                    class="col-span-1 bg-yellow-900/20 hover:bg-yellow-900/40 border border-yellow-700 text-yellow-500 p-3 font-bold active:scale-95 transition-all uppercase text-xs">
-                    ⏸ FREEZE
-                </button>
-                <button onclick="updateGameState('finished')"
-                    class="col-span-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 p-3 font-bold active:scale-95 transition-all uppercase text-xs">
-                    🏁 END
-                </button>
-            </div>
+            <!-- Injected via JS -->
         </div>
 
         <!-- Players List -->
@@ -261,8 +241,9 @@
                 <span id="player-count" class="text-neon-green font-mono text-lg">0</span>
             </h3>
 
-            <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-2">
-                <!-- Players will be injected here -->
+            <!-- Modified container to be more generic -->
+            <div id="players-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+                <!-- Players or Game UI will be injected here -->
             </div>
         </div>
     </div>
@@ -271,6 +252,20 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // --- DATASET ---
+        const GAME_DATA = [
+            { theme: "ANIMAUX", words: ["LION", "TIGRE", "ELEPHANT", "GIRAFE", "PINGOUIN", "AIGLE", "REQUIN", "CHIEN", "CHAT", "LOUP"] },
+            { theme: "CUISINE", words: ["PIZZA", "SUSHI", "BURGER", "PATES", "SALADE", "GATEAU", "OEUF", "FROMAGE", "CHOCOLAT", "PAIN"] },
+            { theme: "VOYAGE", words: ["AVION", "TRAIN", "BATEAU", "PLAGE", "MONTAGNE", "HOTEL", "VALISE", "PASSEPORT", "CARTE", "GUIDE"] },
+            { theme: "MAISON", words: ["LIT", "TABLE", "CHAISE", "CUISINE", "SALON", "DOUCHE", "JARDIN", "GARAGE", "FENETRE", "PORTE"] },
+            { theme: "SPORT", words: ["FOOTBALL", "TENNIS", "BASKET", "NATATION", "VELO", "COURSE", "SKI", "JUDO", "BOXE", "GOLF"] },
+            { theme: "METIER", words: ["DOCTEUR", "POLICIER", "POMPIER", "PROFESSEUR", "AVOCAT", "CUISINIER", "AGRICULTEUR", "PILOTE", "ACTEUR", "CHANTEUR"] },
+            { theme: "CORPS HUMAIN", words: ["MAIN", "PIED", "TETE", "OEIL", "NEZ", "BOUCHE", "OREILLE", "COEUR", "JAMBE", "BRAS"] },
+            { theme: "ECOLE", words: ["STYLO", "CAHIER", "LIVRE", "GOMME", "CRAYON", "TABLEAU", "CARTABLE", "TROUSSE", "DEVOIRS", "RECREATION"] },
+            { theme: "TECHNOLOGIE", words: ["ORDINATEUR", "TELEPHONE", "TABLETTE", "INTERNET", "ROBOT", "CAMERA", "ECRAN", "CLAVIER", "SOURIS", "WIFI"] },
+            { theme: "CINEMA", words: ["FILM", "ACTEUR", "POPCORN", "SALLE", "ECRAN", "HEROS", "ACTION", "COMEDIE", "DRAME", "HORREUR"] }
+        ];
 
         // --- CONFIGURATION FIREBASE ---
         const firebaseConfig = {
@@ -318,17 +313,11 @@
             if (raw) {
                 try {
                     const session = JSON.parse(raw);
-                    // On pourrait ajouter une verif de timestamp ici (ex: session < 2h)
-                    // Pour l'instant on restaure bêtement
                     if (session.user && session.code) {
-                        console.log("Session restaurée:", session);
                         currentUser = session.user;
                         currentLobbyCode = session.code;
-
-                        // Populate UI input to be clean 
                         inputs.username.value = session.user.name;
                         inputs.joinCode.value = session.code;
-
                         setupLobbyListener(session.code);
                         switchScreen('lobby');
                         document.getElementById('lobby-code-display').innerText = session.code;
@@ -343,33 +332,29 @@
         }
 
         // --- UTILITAIRES ---
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
-        }
-
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
         function generateLobbyCode() {
             const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
             let result = "";
-            for (let i = 0; i < 4; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
+            for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
             return result;
         }
-
+        function fmtTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${m}:${sec < 10 ? '0' + sec : sec}`;
+        }
+        function fmtTimeShort(ts) {
+            const d = new Date(ts);
+            return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+        }
         function showToast(message, type = 'error') {
             const toast = document.getElementById('toast');
             toast.innerText = message;
-            // Reset base styles depending on type ? For this theme we keep it strict/red usually
-            if (type === 'success') {
-                toast.className = "fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-green-500 text-green-500 px-6 py-3 shadow-[0_0_15px_rgba(0,255,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center";
-            } else {
-                toast.className = "fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border border-red-500 text-red-500 px-6 py-3 shadow-[0_0_15px_rgba(255,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center";
-            }
-
+            toast.className = `fixed top-12 left-1/2 transform -translate-x-1/2 z-50 bg-black border ${type === 'success' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'} px-6 py-3 shadow-[0_0_15px_rgba(0,0,0,0.5)] text-sm font-bold transition-all duration-300 uppercase tracking-widest w-max max-w-[90%] text-center`;
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
-
         function switchScreen(screenName) {
             screens.menu.classList.add('hidden');
             screens.lobby.classList.add('hidden');
@@ -386,7 +371,6 @@
 
             const code = generateLobbyCode();
             const userId = generateId();
-
             currentUser = { id: userId, name: username, isAdmin: true };
             currentLobbyCode = code;
 
@@ -394,23 +378,17 @@
                 await setDoc(doc(db, "lobbies", code), {
                     adminId: userId,
                     createdAt: Date.now(),
-                    state: "waiting",
-                    players: [{
-                        id: userId,
-                        name: username,
-                        joinedAt: Date.now()
-                    }]
+                    state: "waiting", // waiting, playing, finished
+                    round: null, // stockera les infos de la manche
+                    scores: { [userId]: 0 },
+                    players: [{ id: userId, name: username, joinedAt: Date.now() }]
                 });
 
                 saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
                 switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
-
-            } catch (e) {
-                console.error(e);
-                showToast("ECHEC CREATION SYSTEME");
-            }
+            } catch (e) { console.error(e); showToast("ECHEC CREATION SYSTEME"); }
         };
 
         // 2. Rejoindre une partie
@@ -425,95 +403,313 @@
             currentUser = { id: userId, name: username, isAdmin: false };
             currentLobbyCode = code;
 
-            const lobbyRef = doc(db, "lobbies", code);
-
             try {
+                const lobbyRef = doc(db, "lobbies", code);
                 const lobbySnap = await getDoc(lobbyRef);
 
-                if (!lobbySnap.exists()) {
-                    return showToast("FREQUENCE INCONNUE");
-                }
+                if (!lobbySnap.exists()) return showToast("FREQUENCE INCONNUE");
 
                 await updateDoc(lobbyRef, {
-                    players: arrayUnion({
-                        id: userId,
-                        name: username,
-                        joinedAt: Date.now()
-                    })
+                    players: arrayUnion({ id: userId, name: username, joinedAt: Date.now() }),
+                    [`scores.${userId}`]: 0 // Init score
                 });
 
                 saveSession(currentUser, currentLobbyCode);
                 setupLobbyListener(code);
                 switchScreen('lobby');
                 document.getElementById('lobby-code-display').innerText = code;
-
-            } catch (e) {
-                console.error(e);
-                showToast("CONNEXION IMPOSSIBLE");
-            }
+            } catch (e) { console.error(e); showToast("CONNEXION IMPOSSIBLE"); }
         };
 
-        // 3. Quitter la partie
+        // 3. Quitter / Supprimer
         window.leaveGame = async () => {
             if (currentLobbyCode && currentUser.id) {
                 if (!currentUser.isAdmin) {
                     if (!confirm("CONFIRMATION: VOULEZ-VOUS ABANDONNER LA MISSION ?")) return;
-
                     try {
                         const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-                        // On doit reconstruire l'objet exact pour que arrayRemove fonctionne
-                        // On le récupère depuis le state local ou on fait un snapshot.
-                        // Ici la meilleure technique pour éviter des soucis de sync est de chopper le user courant depuis la DB
-                        // Mais comme on stocke le joinedAt, il faut le connaitre.
-                        // Solution rapide : lire le doc, filtrer, update.
-
                         const snap = await getDoc(lobbyRef);
                         if (snap.exists()) {
                             const players = snap.data().players;
                             const newPlayers = players.filter(p => p.id !== currentUser.id);
                             await updateDoc(lobbyRef, { players: newPlayers });
                         }
-
-                        clearSession();
-                        location.reload();
-                        return;
-                    } catch (e) {
-                        console.error(e);
-                        // Fallback si erreur réseau, on quitte au moins nous même
-                        clearSession();
-                        location.reload();
-                    }
+                        clearSession(); location.reload();
+                    } catch (e) { clearSession(); location.reload(); }
                 } else {
-                    if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME. CONFIRMER ?")) {
-                        deleteLobby();
-                    }
+                    if (confirm("ATTENTION: L'ABANDON DETRUIT LE SYSTEME. CONFIRMER ?")) deleteLobby();
                 }
             }
         };
 
-        // 4. Supprimer le lobby
         window.deleteLobby = async () => {
             if (!currentUser.isAdmin) return;
-            // Admin button has explicit confirmation already in UI logic usually, but here:
             if (!confirm("CONFIRMATION REQUISE: CECI EFFACERA TOUTE TRACE DE LA MISSION.")) return;
-
-            try {
-                await deleteDoc(doc(db, "lobbies", currentLobbyCode));
-                clearSession();
-            } catch (e) { showToast("ERREUR SUPPRESSION"); }
+            try { await deleteDoc(doc(db, "lobbies", currentLobbyCode)); clearSession(); } catch (e) { showToast("ERREUR SUPPRESSION"); }
         };
 
-        // 5. Update State
-        window.updateGameState = async (newState) => {
+        // --- GAMEPLAY: LANCER UNE MANCHE ---
+        window.startRound = async () => {
             if (!currentUser.isAdmin) return;
-            try {
-                await updateDoc(doc(db, "lobbies", currentLobbyCode), {
-                    state: newState
-                });
-            } catch (e) { showToast("ERREUR SIGNAL"); }
+
+            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+            const snap = await getDoc(lobbyRef);
+            const players = snap.data().players;
+
+            if (players.length < 3) return showToast("MINIMUM 3 AGENTS REQUIS");
+
+            // 1. Choix du mot
+            const dataset = GAME_DATA[Math.floor(Math.random() * GAME_DATA.length)];
+            const word = dataset.words[Math.floor(Math.random() * dataset.words.length)];
+
+            // 2. Attribution des rôles
+            const nbInterceptors = Math.max(1, Math.floor((players.length - 1) / 3));
+
+            let shuffled = [...players].sort(() => 0.5 - Math.random());
+            const informer = shuffled.pop();
+            const interceptors = [];
+            for (let i = 0; i < nbInterceptors; i++) interceptors.push(shuffled.pop());
+            const targets = shuffled; // Le reste
+
+            const roles = {};
+            roles[informer.id] = 'INFORMER';
+            interceptors.forEach(p => roles[p.id] = 'INTERCEPTOR');
+            targets.forEach(p => roles[p.id] = 'TARGET');
+
+            // 3. Mise à jour DB
+            await updateDoc(lobbyRef, {
+                state: 'playing',
+                round: {
+                    theme: dataset.theme,
+                    word: word.toUpperCase(),
+                    roles: roles,
+                    startTime: Date.now(),
+                    duration: 120, // 2 minutes
+                    guesses: [],
+                    result: null
+                }
+            });
         };
 
-        // 6. Gestion Joueurs
+        window.submitGuess = async () => {
+            const input = document.getElementById('guess-input');
+            const guess = input.value.trim().toUpperCase();
+            if (!guess) return;
+
+            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+            await updateDoc(lobbyRef, {
+                "round.guesses": arrayUnion({
+                    playerId: currentUser.id,
+                    word: guess,
+                    timestamp: Date.now(),
+                    name: currentUser.name
+                })
+            });
+            input.value = "";
+            showToast("HYPOTHÈSE TRANSMISE", "success");
+        };
+
+        // --- ECOUTEUR & UI ---
+        function setupLobbyListener(code) {
+            if (lobbyUnsubscribe) lobbyUnsubscribe();
+            lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
+                if (!docSnap.exists()) { clearSession(); alert("CANAL OFF."); location.reload(); return; }
+                const data = docSnap.data();
+
+                // Kick check
+                if (!data.players.find(p => p.id === currentUser.id) && !currentUser.isAdmin) {
+                    clearSession(); alert("EXCLU."); location.reload(); return;
+                }
+
+                updateGameUI(data);
+            });
+        }
+
+        function updateGameUI(data) {
+            const state = data.state;
+            const container = document.getElementById('game-status-container');
+            const adminPanel = document.getElementById('admin-controls');
+
+            // 1. GESTION DU TIMER
+            if (state === 'playing' && data.round && !data.round.result) {
+                const elapsed = Math.floor((Date.now() - data.round.startTime) / 1000);
+                const remaining = Math.max(0, data.round.duration - elapsed);
+
+                // Fin auto par admin
+                if (remaining === 0 && currentUser.isAdmin) endRound(data, 'TIME_UP');
+
+                // Vérification Victoire
+                if (currentUser.isAdmin) {
+                    const match = data.round.guesses.find(g => g.word === data.round.word);
+                    if (match) {
+                        const winnerRole = data.round.roles[match.playerId];
+                        if (winnerRole === 'INTERCEPTOR') endRound(data, 'INTERCEPTOR_WIN', match);
+                        else if (winnerRole === 'TARGET') endRound(data, 'SPY_WIN', match);
+                        else if (winnerRole === 'INFORMER') { } // Informer peut pas deviner son mot
+                    }
+                }
+
+                document.getElementById('game-status-text').innerText = fmtTime(remaining);
+                document.getElementById('status-icon').innerText = remaining < 10 ? "🚨" : "⏱";
+            } else if (state === 'waiting') {
+                document.getElementById('game-status-text').innerText = "EN ATTENTE";
+                document.getElementById('status-icon').innerText = "⏳";
+            } else if (state === 'finished') {
+                document.getElementById('game-status-text').innerText = "MISSION TERMINÉE";
+                document.getElementById('status-icon').innerText = "🏁";
+            }
+
+            // 2. INTERFACE
+            if (state === 'playing') renderInGameInterface(data);
+            else renderLobbyInterface(data);
+
+            // 3. ADMIN
+            if (currentUser.isAdmin) {
+                adminPanel.classList.remove('hidden');
+                if (state === 'playing') {
+                    adminPanel.innerHTML = `<button onclick="stopRound()" class="w-full bg-red-900/50 border border-red-500 text-red-500 p-2 text-xs font-bold uppercase">ARRÊT D'URGENCE</button>`;
+                } else {
+                    adminPanel.innerHTML = `
+                        <div class="grid grid-cols-2 gap-2">
+                             <button onclick="startRound()" class="col-span-2 bg-neon-green text-black border border-neon-green p-3 font-bold text-sm uppercase tracking-widest shadow-[0_0_10px_rgba(0,255,0,0.4)]">LANCER MISSION</button>
+                             <button onclick="shareCode()" class="bg-gray-800 border border-gray-600 text-gray-300 p-2 text-xs uppercase">INVITER</button>
+                             <button onclick="deleteLobby()" class="bg-black border border-red-900 text-red-700 p-2 text-xs uppercase">DÉTRUIRE</button>
+                        </div>
+                     `;
+                }
+            } else {
+                adminPanel.classList.add('hidden');
+            }
+        }
+
+        function renderLobbyInterface(data) {
+            const list = document.getElementById('players-list');
+            const sub = document.getElementById('game-status-sub');
+
+            // Clean classes for generic list
+            list.className = "flex-1 overflow-y-auto no-scrollbar space-y-2 p-4";
+
+            if (data.state === 'finished' && data.round && data.round.result) {
+                let msg = data.round.result === 'INTERCEPTOR_WIN' ? "INTERCEPTION RÉUSSIE !" :
+                    data.round.result === 'SPIES_WIN' ? "TRANSMISSION RÉUSSIE !" :
+                        "ECHEC DE LA MISSION";
+                sub.innerHTML = `<span class="text-neon-red font-bold">${msg}</span><br>Le mot était: ${data.round.word}`;
+            } else {
+                sub.innerText = "En attente du QG...";
+            }
+
+            document.getElementById('player-count').innerText = data.players.length;
+            list.innerHTML = '';
+            data.players.forEach(p => {
+                const isMe = p.id === currentUser.id;
+                const score = (data.scores && data.scores[p.id]) || 0;
+
+                // Allow admin to kick in lobby
+                let adminActions = '';
+                if (currentUser.isAdmin && !isMe) {
+                    const pSafe = encodeURIComponent(JSON.stringify(p));
+                    adminActions = `<button onclick="kickPlayer('${pSafe}')" class="text-red-800 hover:text-red-500 font-bold ml-2">✕</button>`;
+                }
+
+                list.insertAdjacentHTML('beforeend', `
+                    <div class="flex justify-between items-center p-2 border-b border-gray-800 bg-black/40">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-sm ${isMe ? 'text-neon-green' : 'text-gray-300'}">${p.name}</span>
+                            ${data.adminId === p.id ? '<span class="text-[10px] text-yellow-600">CMD</span>' : ''}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="font-bold text-white text-xs px-2 py-1 bg-gray-800 rounded">${score} pts</span>
+                            ${adminActions}
+                        </div>
+                    </div>
+                `);
+            });
+        }
+
+        function renderInGameInterface(data) {
+            const list = document.getElementById('players-list');
+            const sub = document.getElementById('game-status-sub');
+
+            // Layout container mode
+            list.className = "flex-1 overflow-hidden flex flex-col";
+
+            const myRole = data.round.roles[currentUser.id];
+            let roleName = "", infoText = "";
+            let canGuess = false;
+
+            if (myRole === 'INFORMER') {
+                roleName = "INFORMATEUR";
+                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT CODE: <span class="text-neon-green text-xl glow">${data.round.word}</span>`;
+            } else if (myRole === 'TARGET') {
+                roleName = "AGENT CIBLE";
+                infoText = `THEME: <span class="text-white">${data.round.theme}</span><br>MOT CODE: <span class="text-red-500">???</span>`;
+                canGuess = true;
+            } else {
+                roleName = "INTERCEPTEUR";
+                infoText = `THEME: <span class="text-red-500">INCONNU</span><br>MOT CODE: <span class="text-red-500">???</span>`;
+                canGuess = true;
+            }
+
+            sub.innerHTML = `<span class="text-xs text-gray-500 tracking-widest">VOTRE RÔLE</span><br><span class="text-lg font-bold text-white">${roleName}</span>`;
+
+            list.innerHTML = `
+                <div class="p-4 flex flex-col gap-4 h-full">
+                    <div class="glass p-4 text-center border-l-2 border-neon-green">
+                        ${infoText}
+                    </div>
+                    
+                    <div id="guess-feed" class="flex-1 overflow-y-auto min-h-[100px] text-xs font-mono space-y-1 p-2 bg-black/30 rounded border border-gray-800">
+                        ${data.round.guesses.map(g => `
+                            <div><span class="text-gray-500">[${fmtTimeShort(g.timestamp)}]</span> <span class="text-gray-300">${g.name}:</span> ${myRole === 'INFORMER' || g.word === data.round.word || myRole === 'INTERCEPTOR' ? g.word : '*****'}</div>
+                        `).join('')}
+                    </div>
+
+                    ${canGuess ? `
+                    <div class="mt-auto">
+                        <div class="flex gap-2">
+                            <input type="text" id="guess-input" placeholder="SAISIR VOTRE HYPOTHÈSE..." class="w-full bg-black border border-gray-600 p-3 text-white font-bold uppercase focus:border-neon-green outline-none">
+                            <button onclick="submitGuess()" class="bg-gray-800 border border-gray-600 text-white px-4 hover:bg-gray-700">></button>
+                        </div>
+                    </div>
+                    ` : '<div class="mt-auto text-center text-xs text-gray-500">TRANSMETTEZ LE CODE ORALEMENT. DO NOT TYPE.</div>'}
+                </div>
+            `;
+        }
+
+        // --- FIN DE MANCHE ---
+        window.stopRound = async () => {
+            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+            await updateDoc(lobbyRef, { state: 'finished' });
+        };
+
+        window.endRound = async (data, reason, winningGuess = null) => {
+            const lobbyRef = doc(db, "lobbies", currentLobbyCode);
+            let result = 'FAIL';
+            let scoresUpdate = { ...data.scores };
+
+            if (reason === 'INTERCEPTOR_WIN' && winningGuess) {
+                result = 'INTERCEPTOR_WIN';
+                const winnerId = winningGuess.playerId;
+                scoresUpdate[winnerId] = (scoresUpdate[winnerId] || 0) + 3;
+            } else if (reason === 'SPY_WIN' && winningGuess) {
+                result = 'SPIES_WIN';
+                const winnerId = winningGuess.playerId;
+                let informerId = null;
+                for (let [pid, role] of Object.entries(data.round.roles)) {
+                    if (role === 'INFORMER') informerId = pid;
+                }
+                scoresUpdate[winnerId] = (scoresUpdate[winnerId] || 0) + 2;
+                if (informerId) scoresUpdate[informerId] = (scoresUpdate[informerId] || 0) + 2;
+            }
+
+            await updateDoc(lobbyRef, {
+                state: 'finished',
+                scores: scoresUpdate,
+                "round.result": result
+            });
+        }
+
+        // --- 6. Gestion Joueurs ---
         window.kickPlayer = async (playerJson) => {
             const player = JSON.parse(decodeURIComponent(playerJson));
             if (confirm(`EXPULSER L'AGENT ${player.name} ?`)) {
@@ -524,166 +720,8 @@
         };
 
         window.renamePlayer = async (playerJson) => {
-            const player = JSON.parse(decodeURIComponent(playerJson));
-            const newName = prompt("NOUVEAU NOM DE CODE:", player.name);
-            if (newName && newName !== player.name) {
-                const lobbyRef = doc(db, "lobbies", currentLobbyCode);
-                const snap = await getDoc(lobbyRef);
-                let players = snap.data().players;
-                const index = players.findIndex(p => p.id === player.id);
-                if (index !== -1) {
-                    players[index].name = newName;
-                    await updateDoc(lobbyRef, { players: players });
-                }
-            }
+            // Deprecated/Simplified for this mode
         };
-
-        // 7. Partage
-        window.shareCode = () => {
-            const url = window.location.origin + window.location.pathname + "?room=" + currentLobbyCode;
-            const text = `MISSION INTERCEPTION // FREQUENCE: ${currentLobbyCode}\n${url}`;
-
-            if (navigator.share) {
-                navigator.share({
-                    title: 'INTERCEPTION // MISSION',
-                    text: text,
-                    url: url
-                }).catch(console.error);
-            } else {
-                navigator.clipboard.writeText(text).then(() => showToast("URL SECURISEE COPIEE", "success"));
-            }
-        };
-
-        // --- LISTENER ---
-        function setupLobbyListener(code) {
-            if (lobbyUnsubscribe) lobbyUnsubscribe();
-
-            lobbyUnsubscribe = onSnapshot(doc(db, "lobbies", code), (docSnap) => {
-                if (!docSnap.exists()) {
-                    if (currentLobbyCode) {
-                        clearSession(); // Important: clear session if lobby died
-                        alert("CANAL OFF. MISSION AVORTÉE.");
-                        location.reload();
-                    }
-                    return;
-                }
-
-                const data = docSnap.data();
-
-                // Kick check
-                const amIInList = data.players.find(p => p.id === currentUser.id);
-                if (!amIInList && !currentUser.isAdmin) {
-                    clearSession(); // Kicked means kicked
-                    alert("ACCÈS REFUSÉ. VOUS AVEZ ÉTÉ EXCLU.");
-                    location.reload();
-                    return;
-                }
-
-                updateStatusUI(data.state);
-                renderPlayerList(data.players, data.adminId);
-
-                const adminPanel = document.getElementById('admin-controls');
-                if (currentUser.isAdmin) {
-                    adminPanel.classList.remove('hidden');
-                } else {
-                    adminPanel.classList.add('hidden');
-                }
-            });
-        }
-
-        function updateStatusUI(state) {
-            const icon = document.getElementById('status-icon');
-            const title = document.getElementById('game-status-text');
-            const sub = document.getElementById('game-status-sub');
-            const container = document.getElementById('game-status-container');
-
-            // Reset base styles
-            container.className = "glass p-6 text-center mb-6 flex flex-col items-center justify-center min-h-[120px] border-l-4 transition-all duration-500 shrink-0";
-
-            switch (state) {
-                case 'waiting':
-                    icon.innerText = "⏳";
-                    title.innerText = "EN ATTENTE";
-                    sub.innerText = "AWAITING PROTOCOL INITIATION";
-                    container.classList.add('border-gray-500');
-                    break;
-                case 'playing':
-                    icon.innerText = "⚡";
-                    title.innerText = "MISSION EN COURS";
-                    sub.innerText = "OPERATIONAL";
-                    container.classList.add('border-neon-green', 'bg-green-900/10');
-                    title.classList.add('text-neon-green');
-                    break;
-                case 'paused':
-                    icon.innerText = "⚠";
-                    title.innerText = "STASE TEMP.";
-                    sub.innerText = "SYSTEM HALTED";
-                    container.classList.add('border-yellow-500', 'bg-yellow-900/10');
-                    title.classList.add('text-yellow-500');
-                    break;
-                case 'finished':
-                    icon.innerText = "🏁";
-                    title.innerText = "MISSION TERMINÉE";
-                    sub.innerText = "DEBRIEFING REQUIS";
-                    container.classList.add('border-red-500', 'bg-red-900/10');
-                    title.classList.add('text-red-500');
-                    break;
-            }
-        }
-
-        function renderPlayerList(players, adminId) {
-            const list = document.getElementById('players-list');
-            document.getElementById('player-count').innerText = players.length;
-            list.innerHTML = '';
-
-            players.forEach(player => {
-                const isAdmin = player.id === adminId;
-                const isMe = player.id === currentUser.id;
-                const playerSafe = encodeURIComponent(JSON.stringify(player));
-
-                let adminActions = '';
-                if (currentUser.isAdmin && !isMe) {
-                    adminActions = `
-                        <div class="flex gap-2 ml-2">
-                        <button onclick="renamePlayer('${playerSafe}')" class="text-gray-500 hover:text-white transition-colors">✎</button>
-                        <button onclick="kickPlayer('${playerSafe}')" class="text-red-800 hover:text-red-500 transition-colors font-bold">✕</button>
-                        </div>
-                    `;
-                }
-
-                const html = `
-                    <div class="flex justify-between items-center p-2 rounded border-b border-gray-800 bg-black/40 hover:bg-white/5 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <div class="w-2 h-2 rounded-full ${isMe ? 'bg-neon-green shadow-[0_0_5px_#00ff41]' : 'bg-gray-600'}"></div>
-                            <div class="flex flex-col">
-                                <span class="font-mono text-sm tracking-widest ${isMe ? 'text-neon-green font-bold' : 'text-gray-300'}">
-                                    ${player.name}
-                                </span>
-                                ${isAdmin ? '<span class="text-[9px] text-yellow-600 font-bold uppercase tracking-widest">COMMANDER</span>' : ''}
-                            </div>
-                        </div>
-                        ${adminActions}
-                    </div>
-                `;
-                list.insertAdjacentHTML('beforeend', html);
-            });
-        }
-
-        // --- INIT ---
-        window.addEventListener('load', () => {
-            // 1. Tenter de restaurer la session
-            const restored = restoreSession();
-
-            // 2. Si pas de restauration, check URL room var
-            if (!restored) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const roomParam = urlParams.get('room');
-                if (roomParam) {
-                    inputs.joinCode.value = roomParam;
-                }
-            }
-        });
-
     </script>
 </body>
 
